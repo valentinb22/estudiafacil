@@ -9,7 +9,7 @@ import { examTypeLabel, levelLabel } from '../exams/examUtils'
 const KEY_STORAGE = 'ef-gemini-key'
 
 /** Modelos a probar en orden (si uno no existe para la clave, se pasa al siguiente). */
-const MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash']
+const MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite']
 const ENDPOINT = (model: string) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
 
@@ -251,44 +251,90 @@ interface RawPlan {
 
 export class GuideError extends Error {}
 
-async function callGemini(key: string, parts: Part[], signal?: AbortSignal): Promise<{ text: string; model: string }> {
-  let lastErr: Error | null = null
-  for (const model of MODELS) {
-    let res: Response
-    try {
-      res = await fetch(ENDPOINT(model), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM }] },
-          contents: [{ role: 'user', parts }],
-          generationConfig: { responseMimeType: 'application/json', responseSchema: SCHEMA, temperature: 0.4 },
-        }),
-        signal,
-      })
-    } catch (e) {
-      if ((e as Error).name === 'AbortError') throw e
-      throw new GuideError('No hay conexión con Gemini. Revisa tu internet e inténtalo de nuevo.')
+/** Espera `ms` o corta antes si se cancela. */
+const wait = (ms: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    const t = setTimeout(resolve, ms)
+    signal?.addEventListener('abort', () => {
+      clearTimeout(t)
+      reject(new DOMException('Cancelado', 'AbortError'))
+    }, { once: true })
+  })
+
+/** Errores pasajeros del servidor (saturación, caída momentánea): se reintenta. */
+const TRANSIENT = new Set([500, 502, 503, 504])
+/** Esperas entre intentos con el mismo modelo antes de pasar al siguiente. */
+const RETRY_DELAYS = [2_000, 5_000]
+
+async function callGemini(
+  key: string,
+  parts: Part[],
+  signal?: AbortSignal,
+  onStatus?: (msg: string) => void,
+): Promise<{ text: string; model: string }> {
+  const body = JSON.stringify({
+    systemInstruction: { parts: [{ text: SYSTEM }] },
+    contents: [{ role: 'user', parts }],
+    generationConfig: { responseMimeType: 'application/json', responseSchema: SCHEMA, temperature: 0.4 },
+  })
+  let busy = false // algún modelo respondió saturado
+  let limited = false // algún modelo respondió con límite de uso
+  let missing = 0
+
+  for (const [mi, model] of MODELS.entries()) {
+    for (let attempt = 0; ; attempt++) {
+      let res: Response
+      try {
+        res = await fetch(ENDPOINT(model), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+          body,
+          signal,
+        })
+      } catch (e) {
+        if ((e as Error).name === 'AbortError') throw e
+        throw new GuideError('No hay conexión con Gemini. Revisa tu internet e inténtalo de nuevo.')
+      }
+      const data = await res.json().catch(() => null)
+      if (res.ok) {
+        const text = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? ''
+        if (!text) throw new GuideError('Gemini no devolvió un plan (puede que el contenido haya sido bloqueado). Inténtalo de nuevo.')
+        return { text, model }
+      }
+      const msg: string = data?.error?.message ?? ''
+      const next = MODELS[mi + 1]
+
+      if (TRANSIENT.has(res.status)) {
+        busy = true
+        if (attempt < RETRY_DELAYS.length) {
+          onStatus?.('Gemini está con mucha demanda. Reintentando…')
+          await wait(RETRY_DELAYS[attempt], signal)
+          continue
+        }
+        if (next) onStatus?.('Gemini está saturado. Probando con otro modelo…')
+        break
+      }
+      if (res.status === 429) {
+        limited = true
+        if (next) onStatus?.('Se llenó el cupo gratuito de este modelo. Probando con otro…')
+        break
+      }
+      if (res.status === 404) {
+        missing++
+        break
+      }
+      if (res.status === 400 && /api key/i.test(msg)) throw new GuideError('La clave de Gemini no es válida. Revísala en la configuración.')
+      if (res.status === 403) throw new GuideError('La clave de Gemini no tiene permiso para usar el modelo. Revisa la clave en Google AI Studio.')
+      if (res.status === 413 || /too large|payload/i.test(msg))
+        throw new GuideError('El material es demasiado grande para enviarlo junto. Prueba con menos exámenes o archivos más livianos.')
+      throw new GuideError(`Gemini respondió con un error (${res.status}). ${msg}`.trim())
     }
-    const body = await res.json().catch(() => null)
-    if (res.ok) {
-      const text = body?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? ''
-      if (!text) throw new GuideError('Gemini no devolvió un plan (puede que el contenido haya sido bloqueado). Inténtalo de nuevo.')
-      return { text, model }
-    }
-    const msg: string = body?.error?.message ?? ''
-    if (res.status === 404) {
-      lastErr = new GuideError(`El modelo ${model} no está disponible para tu clave.`)
-      continue
-    }
-    if (res.status === 400 && /api key/i.test(msg)) throw new GuideError('La clave de Gemini no es válida. Revísala en la configuración.')
-    if (res.status === 403) throw new GuideError('La clave de Gemini no tiene permiso para usar el modelo. Revisa la clave en Google AI Studio.')
-    if (res.status === 429) throw new GuideError('Se alcanzó el límite gratuito de Gemini por ahora. Espera un rato y vuelve a intentar.')
-    if (res.status === 413 || /too large|payload/i.test(msg))
-      throw new GuideError('El material es demasiado grande para enviarlo junto. Prueba con menos exámenes o archivos más livianos.')
-    throw new GuideError(`Gemini respondió con un error (${res.status}). ${msg}`.trim())
   }
-  throw lastErr ?? new GuideError('No se pudo usar Gemini.')
+
+  if (busy) throw new GuideError('Gemini está con mucha demanda en este momento. Espera unos minutos y vuelve a intentar.')
+  if (limited) throw new GuideError('Se alcanzó el límite gratuito de Gemini por ahora. Espera un rato (o hasta mañana) y vuelve a intentar.')
+  if (missing) throw new GuideError('Ningún modelo de Gemini está disponible para tu clave. Revisa la clave en Google AI Studio.')
+  throw new GuideError('No se pudo usar Gemini.')
 }
 
 /** Normaliza "18:00 - 19:30" → "18:00–19:30"; undefined si no tiene forma de horario. */
@@ -303,13 +349,14 @@ function parseRange(v: unknown): string | undefined {
 export async function generateGuide(
   input: GuideInput,
   signal?: AbortSignal,
+  onStatus?: (msg: string) => void,
 ): Promise<Omit<StudyGuide, 'id' | 'createdAt' | 'updatedAt'>> {
   const key = getApiKey()
   if (!key) throw new GuideError('Falta la clave de Gemini.')
   if (!input.exams.length) throw new GuideError('Elige al menos un examen.')
 
   const built = await buildRequest(input)
-  const { text, model } = await callGemini(key, built.parts, signal)
+  const { text, model } = await callGemini(key, built.parts, signal, onStatus)
 
   let raw: RawPlan
   try {

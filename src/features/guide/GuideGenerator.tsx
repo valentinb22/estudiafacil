@@ -41,6 +41,7 @@ export function GuideGenerator({
   const [editingKey, setEditingKey] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [status, setStatus] = useState('')
   const abort = useRef<AbortController | null>(null)
 
   useEffect(() => {
@@ -108,10 +109,11 @@ export function GuideGenerator({
     if (!canGenerate) return
     setBusy(true)
     setError('')
+    setStatus('')
     const ctrl = new AbortController()
     abort.current = ctrl
     try {
-      const guide = await generateGuide({ exams: chosen, startDate, extra }, ctrl.signal)
+      const guide = await generateGuide({ exams: chosen, startDate, extra }, ctrl.signal, setStatus)
       const id = await create('guides', guide)
       onCreated(id)
       onClose()
@@ -295,7 +297,7 @@ export function GuideGenerator({
       {busy && (
         <p role="status" className="mt-5 flex items-center gap-2 text-sm text-ink-2">
           <LoaderCircle className="size-4 animate-spin text-accent" aria-hidden />
-          Gemini está leyendo tus apuntes y armando el plan. Puede tardar hasta un minuto.
+          {status || 'Gemini está leyendo tus apuntes y armando el plan. Puede tardar hasta un minuto.'}
         </p>
       )}
       {error && (
