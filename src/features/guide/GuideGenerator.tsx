@@ -42,6 +42,7 @@ export function GuideGenerator({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
+  const [startedAt, setStartedAt] = useState(0)
   const abort = useRef<AbortController | null>(null)
 
   useEffect(() => {
@@ -110,6 +111,7 @@ export function GuideGenerator({
     setBusy(true)
     setError('')
     setStatus('')
+    setStartedAt(Date.now())
     const ctrl = new AbortController()
     abort.current = ctrl
     try {
@@ -297,7 +299,10 @@ export function GuideGenerator({
       {busy && (
         <p role="status" className="mt-5 flex items-center gap-2 text-sm text-ink-2">
           <LoaderCircle className="size-4 animate-spin text-accent" aria-hidden />
-          {status || 'Gemini está leyendo tus apuntes y armando el plan. Puede tardar hasta un minuto.'}
+          <span className="flex-1">
+            {status || 'Gemini está leyendo tus apuntes y armando el plan. Suele tardar menos de un minuto.'}
+          </span>
+          <Elapsed since={startedAt} />
         </p>
       )}
       {error && (
@@ -335,5 +340,15 @@ function ExamOption({ exam, checked, onToggle, now }: { exam: Exam; checked: boo
         </span>
       </label>
     </li>
+  )
+}
+
+function Elapsed({ since }: { since: number }) {
+  const now = useNow(1000)
+  const sec = Math.max(0, Math.floor((now - since) / 1000))
+  return (
+    <span className="shrink-0 font-mono text-xs text-ink-3 tnum" aria-hidden>
+      {Math.floor(sec / 60)}:{String(sec % 60).padStart(2, '0')}
+    </span>
   )
 }

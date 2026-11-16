@@ -265,6 +265,8 @@ const wait = (ms: number, signal?: AbortSignal) =>
 const TRANSIENT = new Set([500, 502, 503, 504])
 /** Esperas entre intentos con el mismo modelo antes de pasar al siguiente. */
 const RETRY_DELAYS = [2_000, 5_000]
+/** Tiempo máximo de espera por intento. */
+const ATTEMPT_TIMEOUT_MS = 120_000
 
 async function callGemini(
   key: string,
@@ -272,37 +274,70 @@ async function callGemini(
   signal?: AbortSignal,
   onStatus?: (msg: string) => void,
 ): Promise<{ text: string; model: string }> {
-  const body = JSON.stringify({
-    systemInstruction: { parts: [{ text: SYSTEM }] },
-    contents: [{ role: 'user', parts }],
-    generationConfig: { responseMimeType: 'application/json', responseSchema: SCHEMA, temperature: 0.4 },
-  })
+  // Pensamiento "bajo": el plan no necesita razonamiento largo y responde mucho más rápido.
+  // Si un modelo no acepta el parámetro, se reintenta sin él.
+  let thinking = true
+  const makeBody = () =>
+    JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM }] },
+      contents: [{ role: 'user', parts }],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseSchema: SCHEMA,
+        temperature: 0.4,
+        ...(thinking ? { thinkingConfig: { thinkingLevel: 'LOW' } } : {}),
+      },
+    })
   let busy = false // algún modelo respondió saturado
   let limited = false // algún modelo respondió con límite de uso
   let missing = 0
+  let slow = false // algún modelo no respondió a tiempo
 
   for (const [mi, model] of MODELS.entries()) {
     for (let attempt = 0; ; attempt++) {
       let res: Response
+      let data: { candidates?: { content?: { parts?: { text?: string }[] } }[]; error?: { message?: string } } | null
+      // Cada intento tiene un tiempo límite; si se cuelga se corta y se pasa al siguiente modelo.
+      const ctrl = new AbortController()
+      const onAbort = () => ctrl.abort()
+      signal?.addEventListener('abort', onAbort, { once: true })
+      let timedOut = false
+      const timer = setTimeout(() => {
+        timedOut = true
+        ctrl.abort()
+      }, ATTEMPT_TIMEOUT_MS)
       try {
         res = await fetch(ENDPOINT(model), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-          body,
-          signal,
+          body: makeBody(),
+          signal: ctrl.signal,
         })
+        data = await res.json().catch(() => null)
       } catch (e) {
-        if ((e as Error).name === 'AbortError') throw e
+        if (signal?.aborted) throw e
+        if (timedOut) {
+          slow = true
+          if (MODELS[mi + 1]) onStatus?.('Gemini está tardando demasiado. Probando con otro modelo…')
+          break
+        }
         throw new GuideError('No hay conexión con Gemini. Revisa tu internet e inténtalo de nuevo.')
+      } finally {
+        clearTimeout(timer)
+        signal?.removeEventListener('abort', onAbort)
       }
-      const data = await res.json().catch(() => null)
       if (res.ok) {
-        const text = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? ''
+        const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? ''
         if (!text) throw new GuideError('Gemini no devolvió un plan (puede que el contenido haya sido bloqueado). Inténtalo de nuevo.')
         return { text, model }
       }
       const msg: string = data?.error?.message ?? ''
       const next = MODELS[mi + 1]
+
+      if (res.status === 400 && thinking && /thinking/i.test(msg)) {
+        thinking = false
+        continue
+      }
 
       if (TRANSIENT.has(res.status)) {
         busy = true
@@ -331,7 +366,9 @@ async function callGemini(
     }
   }
 
-  if (busy) throw new GuideError('Gemini está con mucha demanda en este momento. Espera unos minutos y vuelve a intentar.')
+  if (slow && !busy && !limited)
+    throw new GuideError('Gemini no respondió a tiempo. Prueba de nuevo, o con menos exámenes o material.')
+  if (busy || slow) throw new GuideError('Gemini está con mucha demanda en este momento. Espera unos minutos y vuelve a intentar.')
   if (limited) throw new GuideError('Se alcanzó el límite gratuito de Gemini por ahora. Espera un rato (o hasta mañana) y vuelve a intentar.')
   if (missing) throw new GuideError('Ningún modelo de Gemini está disponible para tu clave. Revisa la clave en Google AI Studio.')
   throw new GuideError('No se pudo usar Gemini.')
