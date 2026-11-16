@@ -13,6 +13,7 @@ const TasksPage = lazy(() => import('./features/tasks/TasksPage').then((m) => ({
 const ExamsPage = lazy(() => import('./features/exams/ExamsPage').then((m) => ({ default: m.ExamsPage })))
 const NotesPage = lazy(() => import('./features/notes/NotesPage').then((m) => ({ default: m.NotesPage })))
 const SchedulePage = lazy(() => import('./features/schedule/SchedulePage').then((m) => ({ default: m.SchedulePage })))
+const GuidePage = lazy(() => import('./features/guide/GuidePage').then((m) => ({ default: m.GuidePage })))
 const StudyPage = lazy(() => import('./features/study/StudyPage').then((m) => ({ default: m.StudyPage })))
 
 export default function App() {
@@ -29,6 +30,7 @@ export default function App() {
               <Route path="/examenes" element={<ExamsPage />} />
               <Route path="/notas" element={<NotesPage />} />
               <Route path="/estudio" element={<StudyPage />} />
+              <Route path="/guia" element={<GuidePage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>

@@ -1,6 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 import type {
-  AudioItem, Base, BlobRecord, Exam, FileItem, Note, Resource, Subject, SyncTable, Task,
+  AudioItem, Base, BlobRecord, Exam, FileItem, Note, Resource, StudyGuide, Subject, SyncTable, Task,
 } from './types'
 
 class EstudiaDB extends Dexie {
@@ -11,6 +11,7 @@ class EstudiaDB extends Dexie {
   audios!: Table<AudioItem, string>
   files!: Table<FileItem, string>
   resources!: Table<Resource, string>
+  guides!: Table<StudyGuide, string>
   blobs!: Table<BlobRecord, string>
 
   constructor() {
@@ -25,6 +26,7 @@ class EstudiaDB extends Dexie {
       resources: 'id, updatedAt, subjectId, order',
       blobs: 'id, updatedAt',
     })
+    this.version(2).stores({ guides: 'id, updatedAt' })
   }
 }
 

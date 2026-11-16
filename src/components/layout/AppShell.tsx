@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import {
-  BookOpen, CalendarClock, CalendarDays, ClipboardCheck, Headphones, LayoutDashboard, Moon, NotebookPen, Sun, Timer,
+  BookOpen, CalendarClock, CalendarDays, ClipboardCheck, Headphones, LayoutDashboard, Moon, NotebookPen, Sparkles, Sun, Timer,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
@@ -16,6 +16,7 @@ export const NAV = [
   { to: '/horarios', label: 'Horarios', icon: CalendarDays },
   { to: '/tareas', label: 'Tareas', icon: ClipboardCheck },
   { to: '/examenes', label: 'Exámenes', icon: CalendarClock },
+  { to: '/guia', label: 'Guía de estudio', icon: Sparkles },
   { to: '/notas', label: 'Notas', icon: NotebookPen },
   { to: '/estudio', label: 'Estudio', icon: Headphones },
 ] as const

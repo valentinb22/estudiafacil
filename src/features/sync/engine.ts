@@ -28,7 +28,7 @@ import type { Base, SyncTable } from '../../lib/types'
 import { firebaseConfig } from './config'
 import { bump, loadLastSync, saveLastSync, setSync, useSync } from './syncStore'
 
-export const SYNC_TABLES: SyncTable[] = ['subjects', 'tasks', 'exams', 'notes', 'audios', 'files', 'resources']
+export const SYNC_TABLES: SyncTable[] = ['subjects', 'tasks', 'exams', 'notes', 'audios', 'files', 'resources', 'guides']
 const BLOB_TABLES = new Set<SyncTable>(['audios', 'files'])
 const PUSH_DEBOUNCE_MS = 800
 const CHUNK_BYTES = 500 * 1024 // 500 KB → ~683 KB en base64 (< 1 MiB por documento)

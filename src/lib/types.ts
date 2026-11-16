@@ -141,4 +141,32 @@ export interface BlobRecord {
   synced?: boolean
 }
 
-export type SyncTable = 'subjects' | 'tasks' | 'exams' | 'notes' | 'audios' | 'files' | 'resources'
+/** Un bloque de estudio dentro de un día de la guía. */
+export interface GuideBlock {
+  id: string
+  examId?: string
+  topic: string
+  activity: string
+  minutes: number
+  material?: string
+  done: boolean
+}
+
+export interface GuideDay {
+  date: string // "AAAA-MM-DD"
+  blocks: GuideBlock[]
+}
+
+/** Plan de estudio generado por la IA para uno o varios exámenes. */
+export interface StudyGuide extends Base {
+  title: string
+  examIds: string[]
+  summary: string
+  days: GuideDay[]
+  tips: string[]
+  model: string
+  /** Materiales que no se pudieron enviar a la IA (tamaño o formato). */
+  skipped?: string[]
+}
+
+export type SyncTable = 'subjects' | 'tasks' | 'exams' | 'notes' | 'audios' | 'files' | 'resources' | 'guides'
