@@ -166,7 +166,6 @@ async function buildRequest(input: GuideInput, now = Date.now()): Promise<Built>
       '',
       'Calendario con sus horarios de cursada. Las clases y los exámenes se agregan solos al plan: no los incluyas como bloques; arma el estudio sólo en los huecos libres.',
       ...calendar,
-      ...(input.extra.trim() ? ['', `Indicaciones del estudiante: ${input.extra.trim()}`] : []),
       '',
       'Exámenes y entregas a preparar:',
     ].join('\n'),
@@ -223,6 +222,20 @@ async function buildRequest(input: GuideInput, now = Date.now()): Promise<Built>
     }
   }
 
+  // El pedido del estudiante va al final, después del material, para que sea lo último que lee.
+  const extra = input.extra.trim()
+  if (extra) {
+    parts.push({
+      text: [
+        '',
+        'PEDIDO DEL ESTUDIANTE (obligatorio, tiene prioridad sobre las reglas generales):',
+        extra,
+        '',
+        'Cumplilo completo. Si pide algo que no es el cronograma (guiones, resúmenes, preguntas, ejemplos…), entrégalo entero en "extras" usando el material adjunto, y agrega al cronograma los bloques para usarlo (por ejemplo, ensayar con el guion).',
+      ].join('\n'),
+    })
+  }
+
   return { parts, skipped, codes, days, fixed }
 }
 
@@ -245,11 +258,17 @@ Cómo armar cada día:
 - Para presentaciones: preparar el contenido, revisar las diapositivas, ensayar en voz alta midiendo el tiempo y preparar respuestas a preguntas posibles.
 - Si hoy forma parte del plan, empieza después de la hora actual.
 
+Indicaciones del estudiante:
+- Si el estudiante escribe un pedido, cumplilo siempre: tiene prioridad sobre cualquier regla de arriba (horarios, cantidad de horas, estilo, etc.).
+- Si pide un contenido que no entra en el cronograma (un guion para cada diapositiva, un resumen, preguntas de práctica, un glosario, ejemplos resueltos…), hacelo completo en "extras", basado en el material adjunto. No lo resumas ni lo dejes a medias: si pide un guion por diapositiva, va una sección por diapositiva, en orden, con el número y título de la diapositiva y el texto para decir en voz alta (en primera persona, natural, para hablar 1 a 2 minutos), más una nota breve de qué señalar o mostrar.
+- En "extras", "contenido" es texto con saltos de línea; puedes usar "## " para subtítulos, "- " para viñetas y **negrita**.
+
 Formato:
 - "titulo" de cada día: un nombre corto como "Día de aprendizaje", "Día de consolidación", "Día de simulacro" o "Repaso final".
 - Cada bloque lleva "inicio" y "fin" (HH:MM), "tipo", un "titulo" corto (para descansos y comidas: "Descanso", "Almuerzo y descanso", etc.), "detalle" en una oración, "puntos" (sólo en estudio y repaso), "cierre" con una consigna concreta de autoevaluación (por ejemplo "Al terminar: explicá estos conceptos sin mirar"), "examen" con el código (E1, E2…) y "material" con el nombre del archivo o apunte a usar, si corresponde.
 - Los bloques de un día van en orden y sin superponerse.
-- "resumen": 2 o 3 oraciones con la estrategia general. "consejos": 3 a 5 consejos concretos para este caso.`
+- "resumen": 2 o 3 oraciones con la estrategia general. "consejos": 3 a 5 consejos concretos para este caso.
+- "extras": sólo si el estudiante pidió algo además del cronograma; si no, una lista vacía.`
 
 const SCHEMA = {
   type: 'OBJECT',
@@ -285,8 +304,16 @@ const SCHEMA = {
       },
     },
     consejos: { type: 'ARRAY', items: { type: 'STRING' } },
+    extras: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: { titulo: { type: 'STRING' }, contenido: { type: 'STRING' } },
+        required: ['titulo', 'contenido'],
+      },
+    },
   },
-  required: ['resumen', 'dias', 'consejos'],
+  required: ['resumen', 'dias', 'consejos', 'extras'],
 }
 
 interface RawBlock {
@@ -305,6 +332,7 @@ interface RawPlan {
   resumen?: string
   dias?: { fecha?: string; titulo?: string; bloques?: RawBlock[] }[]
   consejos?: string[]
+  extras?: { titulo?: string; contenido?: string }[]
 }
 
 const KINDS: Record<string, GuideBlockKind> = {
@@ -352,6 +380,7 @@ async function callGemini(
         responseMimeType: 'application/json',
         responseSchema: SCHEMA,
         temperature: 0.4,
+        maxOutputTokens: 32_768,
         ...(thinking ? { thinkingConfig: { thinkingLevel: 'LOW' } } : {}),
       },
     })
@@ -514,5 +543,12 @@ export async function generateGuide(
     tips: (raw.consejos ?? []).map((t) => String(t).trim()).filter(Boolean).slice(0, 8),
     model,
     skipped: built.skipped.length ? built.skipped : undefined,
+    request: input.extra.trim() || undefined,
+    extras: (() => {
+      const list = (raw.extras ?? [])
+        .map((x) => ({ title: String(x?.titulo ?? '').trim(), body: String(x?.contenido ?? '').trim() }))
+        .filter((x) => x.body)
+      return list.length ? list : undefined
+    })(),
   }
 }

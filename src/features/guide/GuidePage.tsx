@@ -2,9 +2,10 @@ import clsx from 'clsx'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   BookOpenCheck, CalendarRange, Check, ChevronDown, Coffee, FileWarning, Flag, GraduationCap, Lightbulb, ListChecks,
-  Paperclip, Sparkles, Trash2, UtensilsCrossed,
+  Copy, Paperclip, ScrollText, Sparkles, Trash2, UtensilsCrossed,
 } from 'lucide-react'
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import { Button, IconButton } from '../../components/ui/Button'
 import { Badge, Card, PageHeader, ProgressBar } from '../../components/ui/Display'
 import { ConfirmModal } from '../../components/ui/Modal'
@@ -224,6 +225,12 @@ function GuideView({ guide }: { guide: StudyGuide }) {
           <ProgressBar value={total ? done / total : 0} tone={done >= total && total > 0 ? 'ok' : 'accent'} label="Avance de la guía" />
         </div>
 
+        {guide.request && (
+          <p className="mt-4 rounded-lg border border-line bg-surface-2/50 px-3 py-2 text-[13px] text-ink-2">
+            <span className="font-medium text-ink">Tu pedido:</span> {guide.request}
+          </p>
+        )}
+
         {guide.summary && <p className="mt-4 text-sm leading-relaxed">{guide.summary}</p>}
 
         {guide.skipped?.length ? (
@@ -233,6 +240,14 @@ function GuideView({ guide }: { guide: StudyGuide }) {
           </p>
         ) : null}
       </Card>
+
+      {guide.extras?.length ? (
+        <div className="mb-8 flex flex-col gap-3">
+          {guide.extras.map((x, i) => (
+            <ExtraSection key={i} title={x.title} body={x.body} />
+          ))}
+        </div>
+      ) : null}
 
       <ol className="flex flex-col gap-8">
         {guide.days.map((d) => {
@@ -443,4 +458,87 @@ function BlockRow({
       </label>
     </li>
   )
+}
+
+/** Sección pedida aparte del cronograma (guion, resumen…), plegable y con botón para copiar. */
+function ExtraSection({ title, body }: { title: string; body: string }) {
+  const [copied, setCopied] = useState(false)
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(body)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      /* portapapeles no disponible */
+    }
+  }
+  return (
+    <details open className="group rounded-xl border border-line bg-surface">
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 [&::-webkit-details-marker]:hidden">
+        <ScrollText className="size-4 shrink-0 text-accent" aria-hidden />
+        <span className="min-w-0 flex-1 text-[15px] font-semibold [overflow-wrap:anywhere]">{title || 'Pedido'}</span>
+        <ChevronDown className="size-4 shrink-0 text-ink-2 transition-transform group-open:rotate-180" aria-hidden />
+      </summary>
+      <div className="border-t border-line px-4 pb-4 pt-3">
+        <div className="mb-2 flex justify-end">
+          <Button size="sm" variant="ghost" icon={copied ? <Check /> : <Copy />} onClick={copy}>
+            {copied ? 'Copiado' : 'Copiar'}
+          </Button>
+        </div>
+        <RichText text={body} />
+      </div>
+    </details>
+  )
+}
+
+/** Negrita con **texto**. */
+function inline(text: string) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+    part.startsWith('**') && part.endsWith('**') && part.length > 4 ? (
+      <strong key={i} className="font-semibold text-ink">
+        {part.slice(2, -2)}
+      </strong>
+    ) : (
+      part
+    ),
+  )
+}
+
+/** Texto con formato mínimo: "## " subtítulos, "- " viñetas, párrafos y **negrita**. */
+function RichText({ text }: { text: string }) {
+  const out: ReactNode[] = []
+  let bullets: string[] = []
+  const flush = () => {
+    if (!bullets.length) return
+    out.push(
+      <ul key={`u${out.length}`} className="list-disc space-y-0.5 pl-5 marker:text-ink-3">
+        {bullets.map((b, i) => (
+          <li key={i}>{inline(b)}</li>
+        ))}
+      </ul>,
+    )
+    bullets = []
+  }
+  for (const raw of text.split('\n')) {
+    const line = raw.trim()
+    const bullet = line.match(/^[-*•]\s+(.*)$/)
+    if (bullet) {
+      bullets.push(bullet[1])
+      continue
+    }
+    flush()
+    if (!line) continue
+    const heading = line.match(/^#{1,4}\s+(.*)$/)
+    if (heading) {
+      out.push(
+        <h4 key={out.length} className="pt-3 text-sm font-semibold text-ink first:pt-0">
+          {inline(heading[1])}
+        </h4>,
+      )
+    } else {
+      out.push(<p key={out.length}>{inline(line)}</p>)
+    }
+  }
+  flush()
+  return <div className="space-y-2 text-sm leading-relaxed text-ink-2">{out}</div>
 }

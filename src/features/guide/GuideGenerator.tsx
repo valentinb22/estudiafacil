@@ -222,7 +222,7 @@ export function GuideGenerator({
 
         <Field
           label="Indicaciones para la IA (opcional)"
-          hint="Por ejemplo: «el sábado no puedo», «me cuesta Integrales», «prefiero estudiar de noche»."
+          hint="La IA las cumple con prioridad. Por ejemplo: «hacé un guion para cada diapositiva», «agregá preguntas de práctica», «el sábado no puedo»."
         >
           {(id) => <Textarea id={id} value={extra} onChange={(e) => setExtra(e.target.value)} rows={2} />}
         </Field>

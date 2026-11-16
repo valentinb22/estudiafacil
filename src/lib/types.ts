@@ -186,6 +186,10 @@ export interface StudyGuide extends Base {
   model: string
   /** Materiales que no se pudieron enviar a la IA (tamaño o formato). */
   skipped?: string[]
+  /** Indicaciones que escribió el estudiante al generarla. */
+  request?: string
+  /** Contenido pedido aparte del cronograma (guiones, resúmenes, preguntas…). */
+  extras?: { title: string; body: string }[]
 }
 
 export type SyncTable = 'subjects' | 'tasks' | 'exams' | 'notes' | 'audios' | 'files' | 'resources' | 'guides'
