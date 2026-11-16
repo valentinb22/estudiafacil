@@ -60,7 +60,7 @@ export interface Task extends Base {
   completedAt?: number
 }
 
-export type ExamType = 'parcial' | 'final' | 'quiz' | 'tp' | 'recuperatorio'
+export type ExamType = 'parcial' | 'final' | 'quiz' | 'tp' | 'presentacion' | 'recuperatorio'
 export type TopicLevel = 'unseen' | 'review' | 'mastered'
 
 export interface ExamTopic {

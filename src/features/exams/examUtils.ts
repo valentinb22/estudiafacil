@@ -6,6 +6,7 @@ export const EXAM_TYPES: { value: ExamType; label: string }[] = [
   { value: 'final', label: 'Final' },
   { value: 'quiz', label: 'Quiz / Control' },
   { value: 'tp', label: 'Entrega de TP' },
+  { value: 'presentacion', label: 'Presentación' },
   { value: 'recuperatorio', label: 'Recuperatorio' },
 ]
 
