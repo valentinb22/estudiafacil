@@ -1,11 +1,11 @@
 import clsx from 'clsx'
 import {
   AlertTriangle, ArrowUpRight, BookOpen, CalendarClock, CalendarPlus, Check, ClipboardCheck, ClipboardPlus,
-  Headphones, MapPin, Mic, Pause, Play, Target, Timer,
+  Headphones, MapPin, Mic, Pause, Play, Target, Timer, CalendarDays, Upload,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { useMemo, useRef } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { Badge, Card, EmptyState, ProgressBar, SubjectChip } from '../../components/ui/Display'
 import { update } from '../../lib/db'
@@ -17,6 +17,8 @@ import { DAY, fmtDate, fmtDateTime, fmtDuration, fmtTime, parts, relative, urgen
 import type { AudioItem, Exam, Task } from '../../lib/types'
 import { collectAlerts, toneDot, toneText } from '../notifications/alerts'
 import { NotificationToggle } from '../notifications/NotificationToggle'
+import { usePendingAudioUpload } from '../study/audio/uploadStore'
+import { AUDIO_ACCEPT } from '../study/audio/utils'
 
 const longDate = new Intl.DateTimeFormat('es', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
@@ -392,6 +394,8 @@ function UpcomingTasks({ tasks, total, now }: { tasks: Task[]; total: number; no
 
 function QuickActions() {
   const openFocus = useUI((s) => s.openFocus)
+  const navigate = useNavigate()
+  const fileRef = useRef<HTMLInputElement>(null)
   const tile =
     'group flex min-h-[5.5rem] flex-col justify-between gap-3 rounded-xl border border-line bg-surface p-3 text-left text-sm font-medium transition-colors duration-150 hover:border-ink-3 focus-visible:border-accent sm:p-4'
   const ic = 'size-[18px] text-ink-3 transition-colors group-hover:text-accent'
@@ -409,6 +413,24 @@ function QuickActions() {
           <Mic className={ic} aria-hidden />
           Grabar audio
         </Link>
+        <button type="button" onClick={() => fileRef.current?.click()} className={tile}>
+          <Upload className={ic} aria-hidden />
+          Subir audio
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept={AUDIO_ACCEPT}
+          multiple
+          hidden
+          onChange={(e) => {
+            const files = Array.from(e.target.files ?? [])
+            e.target.value = ''
+            if (!files.length) return
+            usePendingAudioUpload.getState().set(files)
+            navigate('/estudio?tab=audios')
+          }}
+        />
         <Link to="/examenes?new=1" className={tile}>
           <CalendarPlus className={ic} aria-hidden />
           Programar examen
@@ -417,6 +439,10 @@ function QuickActions() {
           <Timer className={ic} aria-hidden />
           Iniciar Pomodoro
         </button>
+        <Link to="/horarios" className={tile}>
+          <CalendarDays className={ic} aria-hidden />
+          Ver horarios
+        </Link>
       </div>
     </section>
   )

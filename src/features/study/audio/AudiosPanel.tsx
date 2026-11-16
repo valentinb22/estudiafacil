@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { Download, Headphones, Mic, Pause, Pencil, Play, Trash2, Upload } from 'lucide-react'
-import type { ChangeEvent, ReactNode } from 'react'
+import type { ChangeEvent, DragEvent, ReactNode } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Button, IconButton } from '../../../components/ui/Button'
@@ -8,15 +8,17 @@ import { Badge, Card, EmptyState, SubjectChip, Toolbar } from '../../../componen
 import { SearchInput, SegmentedControl } from '../../../components/ui/Form'
 import { ConfirmModal } from '../../../components/ui/Modal'
 import { ReorderButtons, SortableGrid } from '../../../components/ui/Sortable'
-import { create, putBlob, remove, reorder } from '../../../lib/db'
+import { remove, reorder } from '../../../lib/db'
 import { useAudios } from '../../../lib/hooks'
 import { usePlayer, type RepeatMode } from '../../../lib/player'
 import { useUI } from '../../../lib/store'
 import { fmtBytes, fmtDuration } from '../../../lib/time'
 import type { AudioItem } from '../../../lib/types'
 import { AudioEditModal } from './AudioEditModal'
+import { AudioUploadModal } from './AudioUploadModal'
+import { usePendingAudioUpload } from './uploadStore'
 import { RecorderModal } from './RecorderModal'
-import { downloadAudio, fullOrderFromSubset, nextAudioOrder, readDuration } from './utils'
+import { AUDIO_ACCEPT, downloadAudio, fullOrderFromSubset, isAudioFile } from './utils'
 
 const REPEAT_OPTIONS: { value: RepeatMode; label: string }[] = [
   { value: 'off', label: 'Normal' },
@@ -38,7 +40,8 @@ export function AudiosPanel() {
   const [recOpen, setRecOpen] = useState(false)
   const [editing, setEditing] = useState<AudioItem | null>(null)
   const [deleting, setDeleting] = useState<AudioItem | null>(null)
-  const [uploading, setUploading] = useState(false)
+  const [pending, setPending] = useState<File[] | null>(null)
+  const [dragging, setDragging] = useState(false)
   const [status, setStatus] = useState('')
   const [optimistic, setOptimistic] = useState<string[] | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -71,6 +74,14 @@ export function AudiosPanel() {
     setParams(next, { replace: true })
   }, [params, setParams])
 
+  // Audios elegidos desde otra pantalla (acción rápida del Panel)
+  const handoff = usePendingAudioUpload((s) => s.files)
+  useEffect(() => {
+    if (!handoff) return
+    usePendingAudioUpload.getState().set(null)
+    setPending(handoff)
+  }, [handoff])
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return ordered
@@ -83,41 +94,30 @@ export function AudiosPanel() {
     await reorder('audios', full)
   }, [])
 
-  const onUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+  /** Abre la ventana de subida con los archivos de audio elegidos o soltados. */
+  const pickFiles = (list: File[]) => {
+    const audiosOnly = list.filter(isAudioFile)
+    const skipped = list.length - audiosOnly.length
+    setStatus(skipped ? `${skipped === 1 ? '1 archivo no era' : `${skipped} archivos no eran`} de audio y se omitió.` : '')
+    if (audiosOnly.length) setPending(audiosOnly)
+  }
+
+  const onUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
     e.target.value = ''
-    if (!files.length) return
-    setUploading(true)
-    let ok = 0
-    let skipped = 0
-    try {
-      let order = await nextAudioOrder()
-      for (const file of files) {
-        if (file.type && !file.type.startsWith('audio/')) {
-          skipped++
-          continue
-        }
-        const durationSec = await readDuration(file)
-        const blobId = await putBlob(file)
-        await create('audios', {
-          title: file.name.replace(/\.[^.]+$/, '') || 'Audio',
-          subjectId: subjectFilter ?? undefined,
-          blobId,
-          mime: file.type || 'audio/mpeg',
-          size: file.size,
-          durationSec,
-          order: order++,
-        })
-        ok++
-      }
-      setStatus(
-        `${ok === 1 ? '1 audio subido' : `${ok} audios subidos`}${skipped ? ` · ${skipped} archivo(s) no eran audio` : ''}`,
-      )
-    } catch {
-      setStatus('No se pudo guardar el audio. Revisa el espacio disponible.')
-    } finally {
-      setUploading(false)
-    }
+    pickFiles(files)
+  }
+
+  const onDragOver = (e: DragEvent) => {
+    if (!e.dataTransfer.types.includes('Files')) return
+    e.preventDefault()
+    setDragging(true)
+  }
+  const onDrop = (e: DragEvent) => {
+    if (!e.dataTransfer.files.length) return
+    e.preventDefault()
+    setDragging(false)
+    pickFiles(Array.from(e.dataTransfer.files))
   }
 
   const closeRec = useCallback(() => setRecOpen(false), [])
@@ -136,8 +136,8 @@ export function AudiosPanel() {
       <Button variant="primary" icon={<Mic />} onClick={() => setRecOpen(true)}>
         Grabar
       </Button>
-      <Button icon={<Upload />} onClick={() => fileRef.current?.click()} disabled={uploading}>
-        {uploading ? 'Subiendo…' : 'Subir audio'}
+      <Button icon={<Upload />} onClick={() => fileRef.current?.click()}>
+        Subir audio
       </Button>
     </>
   )
@@ -145,8 +145,20 @@ export function AudiosPanel() {
   const visibleIds = visible.map((a) => a.id)
 
   return (
-    <div>
-      <input ref={fileRef} type="file" accept="audio/*" multiple hidden onChange={onUpload} />
+    <div
+      onDragOver={onDragOver}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false)
+      }}
+      onDrop={onDrop}
+      className={clsx('relative rounded-xl', dragging && 'outline-dashed outline-2 outline-offset-4 outline-accent')}
+    >
+      {dragging && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-start justify-center rounded-xl bg-accent-soft/70 pt-24">
+          <p className="rounded-lg bg-surface px-4 py-2 text-sm font-medium text-accent shadow-card">Suelta los audios para subirlos</p>
+        </div>
+      )}
+      <input ref={fileRef} type="file" accept={AUDIO_ACCEPT} multiple hidden onChange={onUpload} />
 
       <Toolbar>
         <SearchInput
@@ -166,7 +178,7 @@ export function AudiosPanel() {
       <p className="sr-only" aria-live="polite">
         {status}
       </p>
-      {status && !uploading && <p className="-mt-2 mb-4 text-xs text-ink-2">{status}</p>}
+      {status && <p className="-mt-2 mb-4 text-xs text-ink-2">{status}</p>}
 
       {audios.length === 0 ? (
         <EmptyState
@@ -205,6 +217,14 @@ export function AudiosPanel() {
 
       {recOpen && <RecorderModal onClose={closeRec} />}
       {editing && <AudioEditModal audio={editing} onClose={closeEdit} />}
+      {pending && (
+        <AudioUploadModal
+          files={pending}
+          defaultSubjectId={subjectFilter ?? undefined}
+          onClose={() => setPending(null)}
+          onDone={(n) => setStatus(n === 1 ? 'Audio subido.' : `${n} audios subidos.`)}
+        />
+      )}
       <ConfirmModal
         open={!!deleting}
         onClose={closeDelete}

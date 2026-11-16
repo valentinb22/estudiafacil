@@ -133,7 +133,7 @@ export function FilesPanel() {
         <span>
           <span className="font-medium">Arrastra archivos aquí</span>
           <span className="hidden xs:inline"> o haz clic para elegirlos</span>
-          <span className="block text-xs">PDF, diapositivas, imágenes y documentos</span>
+          <span className="block text-xs">PDF, diapositivas, imágenes, documentos y audios</span>
         </span>
       </button>
 

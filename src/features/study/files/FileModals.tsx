@@ -8,7 +8,7 @@ import { create, getBlob, putBlob, update } from '../../../lib/db'
 import { useBlobUrl } from '../../../lib/hooks'
 import { fmtBytes } from '../../../lib/time'
 import type { FileCategory, FileItem } from '../../../lib/types'
-import { CATEGORIES, CategoryIcon, guessCategory, isImage, isPdf } from './fileMeta'
+import { CATEGORIES, CategoryIcon, guessCategory, isAudio, isImage, isPdf } from './fileMeta'
 import { nextOrder } from './reorderSubset'
 
 /** Descarga un archivo guardado con su nombre original. */
@@ -207,6 +207,7 @@ export function PreviewModal({ file, onClose }: { file: FileItem | null; onClose
   const url = useBlobUrl(file?.blobId)
   const image = file && isImage(file.mime, file.name)
   const pdf = file && isPdf(file.mime, file.name)
+  const audio = file && isAudio(file.mime, file.name)
 
   return (
     <Modal
@@ -229,6 +230,16 @@ export function PreviewModal({ file, onClose }: { file: FileItem | null; onClose
         <p className="py-10 text-center text-sm text-ink-2">Cargando…</p>
       ) : image ? (
         <img src={url} alt={file.name} className="mx-auto max-h-[70dvh] w-auto max-w-full rounded-lg object-contain" />
+      ) : audio ? (
+        <div className="flex flex-col items-center gap-4 rounded-xl border border-line bg-surface-2/40 px-4 py-10">
+          <CategoryIcon category="audio" className="size-8 text-ink-3" />
+          <audio src={url} controls preload="metadata" className="w-full max-w-md">
+            Tu navegador no puede reproducir este audio.
+          </audio>
+          <p className="max-w-sm text-center text-xs text-ink-2">
+            Para repasar con repetición y velocidad, súbelo también en la pestaña Audios.
+          </p>
+        </div>
       ) : pdf ? (
         <object
           data={url}

@@ -50,6 +50,43 @@ const EXT: Record<string, string> = {
 }
 export const extFromMime = (mime: string) => EXT[mime.split(';')[0].trim()] ?? 'audio'
 
+/** Extensiones de audio comunes (incluye notas de voz de WhatsApp/Telegram y grabadoras de celular). */
+const AUDIO_EXT: Record<string, string> = {
+  mp3: 'audio/mpeg',
+  m4a: 'audio/mp4',
+  aac: 'audio/aac',
+  wav: 'audio/wav',
+  ogg: 'audio/ogg',
+  oga: 'audio/ogg',
+  opus: 'audio/ogg',
+  weba: 'audio/webm',
+  webm: 'audio/webm',
+  flac: 'audio/flac',
+  amr: 'audio/amr',
+  '3gp': 'audio/3gpp',
+  caf: 'audio/x-caf',
+}
+
+/**
+ * Valor para <input accept>. Listar extensiones además de `audio/*` hace que Android abra el
+ * selector de archivos (con sólo `audio/*` algunos celulares abren la grabadora del sistema).
+ */
+export const AUDIO_ACCEPT = `audio/*,${Object.keys(AUDIO_EXT).map((e) => `.${e}`).join(',')}`
+
+const extOf = (name: string) => name.toLowerCase().split('.').pop() ?? ''
+
+/** ¿Es un archivo de audio? Acepta tipo MIME vacío o genérico si la extensión es de audio. */
+export const isAudioFile = (f: { name: string; type: string }) =>
+  f.type.startsWith('audio/') || extOf(f.name) in AUDIO_EXT
+
+/** Tipo MIME confiable: usa el del navegador si es de audio, si no lo deduce por extensión. */
+export const audioMimeOf = (f: { name: string; type: string }) =>
+  f.type.startsWith('audio/') ? f.type : (AUDIO_EXT[extOf(f.name)] ?? 'audio/mpeg')
+
+/** Título legible a partir del nombre de archivo ("clase_03-repaso.mp3" → "clase 03 repaso"). */
+export const titleFromFilename = (name: string) =>
+  name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Audio'
+
 export function audioFilename(item: Pick<AudioItem, 'title' | 'mime'>) {
   const base = item.title.replace(/[\\/:*?"<>|]+/g, '').trim() || 'audio'
   return `${base}.${extFromMime(item.mime)}`

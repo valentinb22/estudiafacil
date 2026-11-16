@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import {
   BookOpen, CalendarClock, Clock, Filter, FileText, Headphones, ListTodo, MapPin, Pencil, Plus, Trash2, User,
 } from 'lucide-react'
+import { summarizeSlots } from '../../lib/schedule'
 import type { ReactNode } from 'react'
 import { useMemo, useState } from 'react'
 import { Button, IconButton } from '../../components/ui/Button'
@@ -209,7 +210,7 @@ function SubjectCard({
   const details: { icon: ReactNode; label: string; value?: string }[] = [
     { icon: <User />, label: 'Profesor/a', value: s.professor },
     { icon: <MapPin />, label: 'Aula', value: s.room },
-    { icon: <Clock />, label: 'Horario', value: s.schedule },
+    { icon: <Clock />, label: 'Horario', value: summarizeSlots(s) },
   ]
   const shown = details.filter((d) => d.value)
 
@@ -227,11 +228,6 @@ function SubjectCard({
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               {s.code && (
                 <span className="font-mono text-xs font-medium uppercase tracking-wide text-ink-2 tnum">{s.code}</span>
-              )}
-              {s.credits != null && (
-                <span className="text-xs text-ink-2">
-                  · <span className="font-mono tnum">{s.credits}</span> {s.credits === 1 ? 'crédito' : 'créditos'}
-                </span>
               )}
             </div>
             <h2 className="mt-0.5 font-serif text-2xl leading-tight tracking-tight [overflow-wrap:anywhere]">

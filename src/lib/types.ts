@@ -9,13 +9,29 @@ export interface Base {
   deleted?: boolean
 }
 
+/** 0 = domingo … 6 = sábado (igual que Date.getDay()) */
+export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6
+
+/** Una franja de cursada: un día de la semana con hora de inicio y fin. */
+export interface ScheduleSlot {
+  id: string
+  day: Weekday
+  start: string // "HH:MM"
+  end: string // "HH:MM"
+  room?: string // aula específica de esa franja (si difiere del aula de la materia)
+}
+
 export interface Subject extends Base {
   name: string
   code: string
   color: string // hex
   professor?: string
   room?: string
+  /** Horarios estructurados por día. */
+  slots?: ScheduleSlot[]
+  /** @deprecated texto libre de versiones anteriores; sólo se muestra si no hay `slots`. */
   schedule?: string
+  /** @deprecated ya no se pide; se conserva para datos antiguos. */
   credits?: number
   order: number
 }
@@ -81,7 +97,7 @@ export interface AudioItem extends Base {
   order: number
 }
 
-export type FileCategory = 'pdf' | 'slides' | 'exercises' | 'past_exam' | 'summary' | 'photo' | 'other'
+export type FileCategory = 'pdf' | 'slides' | 'exercises' | 'past_exam' | 'summary' | 'photo' | 'audio' | 'other'
 
 export interface FileItem extends Base {
   subjectId?: string

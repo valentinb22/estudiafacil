@@ -12,6 +12,7 @@ const SubjectsPage = lazy(() => import('./features/subjects/SubjectsPage').then(
 const TasksPage = lazy(() => import('./features/tasks/TasksPage').then((m) => ({ default: m.TasksPage })))
 const ExamsPage = lazy(() => import('./features/exams/ExamsPage').then((m) => ({ default: m.ExamsPage })))
 const NotesPage = lazy(() => import('./features/notes/NotesPage').then((m) => ({ default: m.NotesPage })))
+const SchedulePage = lazy(() => import('./features/schedule/SchedulePage').then((m) => ({ default: m.SchedulePage })))
 const StudyPage = lazy(() => import('./features/study/StudyPage').then((m) => ({ default: m.StudyPage })))
 
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
             <Routes>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/materias" element={<SubjectsPage />} />
+              <Route path="/horarios" element={<SchedulePage />} />
               <Route path="/tareas" element={<TasksPage />} />
               <Route path="/examenes" element={<ExamsPage />} />
               <Route path="/notas" element={<NotesPage />} />

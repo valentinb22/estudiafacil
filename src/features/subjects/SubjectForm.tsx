@@ -6,7 +6,9 @@ import { Button } from '../../components/ui/Button'
 import { Field, Input } from '../../components/ui/Form'
 import { Modal } from '../../components/ui/Modal'
 import { create, update } from '../../lib/db'
-import type { Subject } from '../../lib/types'
+import { isValidSlot } from '../../lib/schedule'
+import type { ScheduleSlot, Subject } from '../../lib/types'
+import { ScheduleEditor } from './ScheduleEditor'
 
 /** Paleta curada: tonos apagados, legibles sobre papel y pizarra. */
 export const PALETTE = [
@@ -28,12 +30,11 @@ interface FormState {
   color: string
   professor: string
   room: string
-  schedule: string
-  credits: string
+  slots: ScheduleSlot[]
 }
 
 const empty = (color: string): FormState => ({
-  name: '', code: '', color, professor: '', room: '', schedule: '', credits: '',
+  name: '', code: '', color, professor: '', room: '', slots: [],
 })
 
 const fromSubject = (s: Subject): FormState => ({
@@ -42,8 +43,7 @@ const fromSubject = (s: Subject): FormState => ({
   color: s.color,
   professor: s.professor ?? '',
   room: s.room ?? '',
-  schedule: s.schedule ?? '',
-  credits: s.credits != null ? String(s.credits) : '',
+  slots: s.slots ?? [],
 })
 
 export function SubjectForm({
@@ -58,31 +58,35 @@ export function SubjectForm({
   nextOrder: number
 }) {
   const [f, setF] = useState<FormState>(() => empty(PALETTE[0].hex))
+  // Remonta el editor de horarios al cargar otra materia para que abra en el primer día con clases.
+  const [loadKey, setLoadKey] = useState(0)
 
   useEffect(() => {
     if (!open) return
     setF(subject ? fromSubject(subject) : empty(PALETTE[nextOrder % PALETTE.length].hex))
+    setLoadKey((k) => k + 1)
     // Sólo al abrir: si `nextOrder` cambia con el modal abierto (p. ej. llega una materia por
     // sincronización) no hay que borrar lo que el usuario está escribiendo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, subject])
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF((p) => ({ ...p, [k]: v }))
-  const valid = f.name.trim().length > 0
+  const valid = f.name.trim().length > 0 && f.slots.every(isValidSlot)
   const isCustom = !PALETTE.some((p) => p.hex.toLowerCase() === f.color.toLowerCase())
 
   const submit = async (e?: FormEvent) => {
     e?.preventDefault()
     if (!valid) return
-    const credits = f.credits.trim() === '' ? undefined : Number(f.credits)
     const data = {
       name: f.name.trim(),
       code: f.code.trim().toUpperCase(),
       color: f.color,
       professor: f.professor.trim() || undefined,
       room: f.room.trim() || undefined,
-      schedule: f.schedule.trim() || undefined,
-      credits: credits != null && Number.isFinite(credits) ? credits : undefined,
+      slots: f.slots.map((x) => ({ ...x, room: x.room?.trim() || undefined })),
+      // Al guardar con horarios estructurados se descarta el texto libre y los créditos antiguos.
+      schedule: f.slots.length ? undefined : subject?.schedule,
+      credits: undefined,
     }
     if (subject) await update('subjects', subject.id, data)
     else await create('subjects', { ...data, order: nextOrder })
@@ -137,30 +141,7 @@ export function SubjectForm({
         <Field label="Aula" className="sm:col-span-3">
           {(id) => <Input id={id} value={f.room} onChange={(e) => set('room', e.target.value)} placeholder="Aula 204" />}
         </Field>
-        <Field label="Horario" className="sm:col-span-4">
-          {(id) => (
-            <Input
-              id={id}
-              value={f.schedule}
-              onChange={(e) => set('schedule', e.target.value)}
-              placeholder="Lun y Mié 18:00–20:00"
-            />
-          )}
-        </Field>
-        <Field label="Créditos" className="sm:col-span-2">
-          {(id) => (
-            <Input
-              id={id}
-              type="number"
-              inputMode="numeric"
-              min={0}
-              step={1}
-              value={f.credits}
-              onChange={(e) => set('credits', e.target.value)}
-              className="font-mono tnum"
-            />
-          )}
-        </Field>
+        <ScheduleEditor key={loadKey} value={f.slots} onChange={(slots) => set('slots', slots)} defaultRoom={f.room.trim() || undefined} />
 
         <fieldset className="sm:col-span-6">
           <legend className="mb-1.5 text-[13px] font-medium text-ink-2">Color</legend>
