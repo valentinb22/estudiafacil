@@ -1,6 +1,9 @@
 import clsx from 'clsx'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { BookOpenCheck, CalendarRange, Check, ChevronDown, FileWarning, Lightbulb, Paperclip, Sparkles, Trash2 } from 'lucide-react'
+import {
+  BookOpenCheck, CalendarRange, Check, ChevronDown, Coffee, FileWarning, Flag, GraduationCap, Lightbulb, ListChecks,
+  Paperclip, Sparkles, Trash2, UtensilsCrossed,
+} from 'lucide-react'
 import { useState } from 'react'
 import { Button, IconButton } from '../../components/ui/Button'
 import { Badge, Card, PageHeader, ProgressBar } from '../../components/ui/Display'
@@ -12,7 +15,8 @@ import { examTypeLabel } from '../exams/examUtils'
 import { GuideGenerator } from './GuideGenerator'
 import { isoDate, parseIsoDate } from './gemini'
 
-const dayFmt = new Intl.DateTimeFormat('es', { weekday: 'long', day: 'numeric', month: 'long' })
+const weekdayFmt = new Intl.DateTimeFormat('es', { weekday: 'long' })
+const monthDayFmt = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'long' })
 const shortFmt = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short' })
 
 const fmtMin = (min: number) => {
@@ -26,6 +30,7 @@ const guideMinutes = (g: StudyGuide) => {
   let done = 0
   for (const d of g.days)
     for (const b of d.blocks) {
+      if (!isCheckable(b)) continue
       total += b.minutes
       if (b.done) done += b.minutes
     }
@@ -229,87 +234,55 @@ function GuideView({ guide }: { guide: StudyGuide }) {
         ) : null}
       </Card>
 
-      <ol className="flex flex-col gap-4">
+      <ol className="flex flex-col gap-8">
         {guide.days.map((d) => {
           const date = parseIsoDate(d.date)
           const isToday = d.date === today
           const past = d.date < today
-          const mins = d.blocks.reduce((a, b) => a + b.minutes, 0)
-          const allDone = d.blocks.every((b) => b.done)
-          const examsThatDay = (exams ?? []).filter((e) => isoDate(e.at) === d.date)
+          const studyMin = d.blocks.filter(isCheckable).reduce((a, b) => a + b.minutes, 0)
+          const allDone = d.blocks.filter(isCheckable).every((b) => b.done)
+          const timed = d.blocks.filter((b) => b.time)
+          const first = timed[0]?.time?.slice(0, 5)
+          const lastTime = timed[timed.length - 1]?.time
+          const last = lastTime ? lastTime.slice(-5) : undefined
+          let n = 0
           return (
             <li key={d.date}>
               <section aria-labelledby={`d-${d.date}`} className={clsx(past && allDone && 'opacity-60')}>
-                <h3
-                  id={`d-${d.date}`}
-                  className={clsx(
-                    'mb-2 flex flex-wrap items-center gap-2 px-0.5 text-[13px] font-medium first-letter:uppercase',
-                    isToday ? 'text-accent' : 'text-ink-2',
-                  )}
-                >
-                  <span className="first-letter:uppercase">{dayFmt.format(date)}</span>
-                  {isToday && <Badge tone="accent">Hoy</Badge>}
-                  {examsThatDay.map((e) => (
-                    <Badge key={e.id} tone="danger">
-                      {examTypeLabel(e.type)}: {e.title}
-                    </Badge>
-                  ))}
-                  <span className="ml-auto font-mono text-xs font-normal text-ink-3 tnum">{fmtMin(mins)}</span>
-                </h3>
-                <ul className="overflow-hidden rounded-xl border border-line bg-surface">
+                <header className="mb-3 px-0.5">
+                  <h3 id={`d-${d.date}`} className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                    <span className={clsx('font-serif text-3xl leading-none', isToday && 'text-accent')}>
+                      {weekdayFmt.format(date).replace(/^./, (c) => c.toUpperCase())}
+                    </span>
+                    <span className="text-sm text-ink-2">{monthDayFmt.format(date)}</span>
+                    {isToday && <Badge tone="accent">Hoy</Badge>}
+                  </h3>
+                  <p className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[13px] text-ink-2">
+                    {d.title && <span className="font-medium text-ink">{d.title}</span>}
+                    {first && last && (
+                      <span className="font-mono tnum">
+                        {first} – {last}
+                      </span>
+                    )}
+                    {studyMin > 0 && <span>· {fmtMin(studyMin)} de estudio</span>}
+                  </p>
+                </header>
+                <ol className="overflow-hidden rounded-xl border border-line bg-surface">
                   {d.blocks.map((b) => {
-                    const e = b.examId ? examMap.get(b.examId) : undefined
+                    const numbered = b.kind !== 'class' && b.kind !== 'exam'
+                    if (numbered) n++
                     return (
-                      <li key={b.id} className="border-b border-line last:border-b-0">
-                        <label className="flex cursor-pointer items-start gap-3 px-3 py-2.5 hover:bg-surface-2/60">
-                          <input type="checkbox" checked={b.done} onChange={() => toggleBlock(b.id)} className="peer sr-only" />
-                          <span
-                            aria-hidden
-                            className={clsx(
-                              'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-accent',
-                              b.done ? 'border-accent bg-accent text-accent-ink' : 'border-line bg-surface',
-                            )}
-                          >
-                            {b.done && <Check className="size-3.5" strokeWidth={3} />}
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="flex items-start justify-between gap-3">
-                              <span
-                                className={clsx(
-                                  'text-sm font-medium leading-snug [overflow-wrap:anywhere]',
-                                  b.done && 'text-ink-2 line-through',
-                                )}
-                              >
-                                {b.topic}
-                              </span>
-                              <span className="shrink-0 text-right font-mono text-xs text-ink-2 tnum">
-                                {b.time && <span className="block text-ink">{b.time}</span>}
-                                {fmtMin(b.minutes)}
-                              </span>
-                            </span>
-                            {b.activity && (
-                              <span className="mt-0.5 block text-[13px] leading-relaxed text-ink-2">{b.activity}</span>
-                            )}
-                            <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-ink-3">
-                              {e && (
-                                <span className="inline-flex min-w-0 items-center gap-1.5">
-                                  <span className="size-2 shrink-0 rounded-full" style={{ background: colorOf(b) }} aria-hidden />
-                                  <span className="truncate">{e.title}</span>
-                                </span>
-                              )}
-                              {b.material && (
-                                <span className="inline-flex min-w-0 items-center gap-1 [overflow-wrap:anywhere]">
-                                  <Paperclip className="size-3 shrink-0" aria-hidden />
-                                  {b.material}
-                                </span>
-                              )}
-                            </span>
-                          </span>
-                        </label>
-                      </li>
+                      <BlockRow
+                        key={b.id}
+                        block={b}
+                        n={numbered ? n : undefined}
+                        exam={b.examId ? examMap.get(b.examId) : undefined}
+                        color={colorOf(b)}
+                        onToggle={() => toggleBlock(b.id)}
+                      />
                     )
                   })}
-                </ul>
+                </ol>
               </section>
             </li>
           )
@@ -338,5 +311,136 @@ function GuideView({ guide }: { guide: StudyGuide }) {
         message={`Se eliminará la guía «${guide.title}». Los exámenes y apuntes no se tocan.`}
       />
     </article>
+  )
+}
+
+/** Bloques que cuentan como estudio (se tildan y suman al avance). Guías viejas no tienen `kind`. */
+const isCheckable = (b: GuideBlock) => !b.kind || b.kind === 'study' || b.kind === 'review' || b.kind === 'practice'
+
+const fmtRange = (t?: string) => (t ? t.replace('–', ' – ') : '')
+
+function BlockRow({
+  block: b,
+  n,
+  exam,
+  color,
+  onToggle,
+}: {
+  block: GuideBlock
+  n?: number
+  exam?: Exam
+  color: string
+  onToggle: () => void
+}) {
+  const row = 'border-b border-line last:border-b-0'
+
+  // Clase de la cursada: fija, sólo para ubicar el día.
+  if (b.kind === 'class') {
+    return (
+      <li className={clsx(row, 'flex items-center gap-3 bg-surface-2/50 px-3 py-2 text-[13px] text-ink-2')}>
+        <GraduationCap className="size-4 shrink-0" style={{ color: b.color }} aria-hidden />
+        <span className="w-28 shrink-0 font-mono text-xs tnum">{fmtRange(b.time)}</span>
+        <span className="min-w-0 flex-1 truncate">
+          {b.topic}
+          {b.activity && <span className="text-ink-3"> · {b.activity}</span>}
+        </span>
+      </li>
+    )
+  }
+
+  if (b.kind === 'exam') {
+    return (
+      <li className={clsx(row, 'flex items-center gap-3 bg-danger-soft px-3 py-2.5 text-[13px] font-medium text-danger')}>
+        <Flag className="size-4 shrink-0" aria-hidden />
+        <span className="w-28 shrink-0 font-mono text-xs tnum">{b.time}</span>
+        <span className="min-w-0 flex-1">
+          {b.topic}
+          {b.activity && <span className="font-normal"> · {b.activity}</span>}
+        </span>
+      </li>
+    )
+  }
+
+  // Descansos, comidas y preparación: filas compactas.
+  if (b.kind === 'break' || b.kind === 'meal' || b.kind === 'prep') {
+    const Icon = b.kind === 'meal' ? UtensilsCrossed : b.kind === 'break' ? Coffee : ListChecks
+    return (
+      <li className={clsx(row, 'flex items-start gap-3 px-3 py-2 text-[13px]', b.kind !== 'prep' && 'bg-surface-2/40')}>
+        <span className="w-5 shrink-0 pt-px text-right font-mono text-xs text-ink-3 tnum">{n}.</span>
+        <span className="w-28 shrink-0 pt-px font-mono text-xs text-ink-2 tnum">{fmtRange(b.time)}</span>
+        <span className="min-w-0 flex-1 text-ink-2">
+          <span className="inline-flex items-center gap-1.5 font-medium text-ink">
+            <Icon className="size-3.5 text-ink-3" aria-hidden />
+            {b.topic}
+          </span>
+          {b.activity && <span className="block text-xs leading-relaxed">{b.activity}</span>}
+        </span>
+      </li>
+    )
+  }
+
+  // Bloque de estudio, repaso o simulacro.
+  const kindLabel = b.kind === 'review' ? 'Repaso' : b.kind === 'practice' ? 'Simulacro' : undefined
+  return (
+    <li className={row}>
+      <label className="flex cursor-pointer items-start gap-3 px-3 py-3 hover:bg-surface-2/50">
+        <input type="checkbox" checked={b.done} onChange={onToggle} className="peer sr-only" />
+        <span className="w-5 shrink-0 pt-0.5 text-right font-mono text-xs text-ink-3 tnum">{n}.</span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-start gap-2.5">
+            <span
+              aria-hidden
+              className={clsx(
+                'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors',
+                b.done ? 'border-accent bg-accent text-accent-ink' : 'border-line bg-surface',
+              )}
+            >
+              {b.done && <Check className="size-3.5" strokeWidth={3} />}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                {b.time && <span className="font-mono text-[13px] text-ink-2 tnum">{fmtRange(b.time)}</span>}
+                <span className={clsx('text-[15px] font-semibold leading-snug', b.done && 'text-ink-2 line-through')}>
+                  {b.topic}
+                </span>
+                {kindLabel && (
+                  <Badge tone={b.kind === 'practice' ? 'warn' : 'neutral'} className="h-5 px-1.5 text-[11px]">
+                    {kindLabel}
+                  </Badge>
+                )}
+              </span>
+              {b.activity && <span className="mt-1 block text-[13px] leading-relaxed text-ink-2">{b.activity}</span>}
+              {b.points && (
+                <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-[13px] leading-relaxed marker:text-ink-3">
+                  {b.points.map((p, i) => (
+                    <li key={i}>{p}</li>
+                  ))}
+                </ul>
+              )}
+              {b.check && (
+                <span className="mt-2 block rounded-md bg-accent-soft/60 px-2.5 py-1.5 text-[13px] leading-relaxed text-accent">
+                  {b.check}
+                </span>
+              )}
+              <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-ink-3">
+                {!b.time && <span className="font-mono tnum">{fmtMin(b.minutes)}</span>}
+                {exam && (
+                  <span className="inline-flex min-w-0 items-center gap-1.5">
+                    <span className="size-2 shrink-0 rounded-full" style={{ background: color }} aria-hidden />
+                    <span className="truncate">{exam.title}</span>
+                  </span>
+                )}
+                {b.material && (
+                  <span className="inline-flex min-w-0 items-center gap-1 [overflow-wrap:anywhere]">
+                    <Paperclip className="size-3 shrink-0" aria-hidden />
+                    {b.material}
+                  </span>
+                )}
+              </span>
+            </span>
+          </span>
+        </span>
+      </label>
+    </li>
   )
 }

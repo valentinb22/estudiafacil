@@ -141,21 +141,38 @@ export interface BlobRecord {
   synced?: boolean
 }
 
-/** Un bloque de estudio dentro de un día de la guía. */
+/**
+ * Tipo de bloque: los de estudio se pueden tildar; descansos, comidas, clases y el examen
+ * sólo ordenan el día. Guías anteriores no tienen `kind` (se tratan como estudio).
+ */
+export type GuideBlockKind = 'study' | 'review' | 'practice' | 'prep' | 'break' | 'meal' | 'class' | 'exam'
+
+/** Un bloque dentro de un día de la guía. */
 export interface GuideBlock {
   id: string
+  kind?: GuideBlockKind
   examId?: string
+  /** Título del bloque ("RA1 — Páginas 1 a 4"). */
   topic: string
+  /** Descripción breve de qué hacer. */
   activity: string
   minutes: number
+  /** Subtemas a cubrir. */
+  points?: string[]
+  /** Consigna de cierre ("Al terminar: explicá estos conceptos sin mirar"). */
+  check?: string
   material?: string
-  /** Horario sugerido, "HH:MM–HH:MM". */
+  /** Horario, "HH:MM–HH:MM". */
   time?: string
+  /** Color propio (clases: color de la materia). */
+  color?: string
   done: boolean
 }
 
 export interface GuideDay {
   date: string // "AAAA-MM-DD"
+  /** Nombre del día ("Día de aprendizaje"). */
+  title?: string
   blocks: GuideBlock[]
 }
 

@@ -2,8 +2,8 @@
 // La clave la pega el usuario y queda sólo en este navegador (localStorage); no se sincroniza.
 
 import { alive, db, uid } from '../../lib/db'
-import { dayLong, isValidSlot, toMin } from '../../lib/schedule'
-import type { Exam, GuideDay, StudyGuide, Subject, Weekday } from '../../lib/types'
+import { dayLong, fromMin, isValidSlot, toMin } from '../../lib/schedule'
+import type { Exam, GuideBlock, GuideBlockKind, GuideDay, StudyGuide, Subject, Weekday } from '../../lib/types'
 import { examTypeLabel, levelLabel } from '../exams/examUtils'
 
 const KEY_STORAGE = 'ef-gemini-key'
@@ -88,6 +88,8 @@ interface Built {
   /** Código corto ("E1") → id del examen. */
   codes: Map<string, string>
   days: string[]
+  /** Clases y exámenes de cada día, que se agregan al plan tal cual. */
+  fixed: Map<string, GuideBlock[]>
 }
 
 async function buildRequest(input: GuideInput, now = Date.now()): Promise<Built> {
@@ -104,6 +106,7 @@ async function buildRequest(input: GuideInput, now = Date.now()): Promise<Built>
   lastExam.setHours(0, 0, 0, 0)
   const days: string[] = []
   const calendar: string[] = []
+  const fixed = new Map<string, GuideBlock[]>()
   const subjectList = [...subjects.values()]
   for (let d = new Date(start); d <= lastExam && days.length < 120; d.setDate(d.getDate() + 1)) {
     const iso = isoDate(d)
@@ -113,10 +116,39 @@ async function buildRequest(input: GuideInput, now = Date.now()): Promise<Built>
       .flatMap((s) =>
         (s.slots ?? [])
           .filter((sl) => isValidSlot(sl) && sl.day === wd)
-          .map((sl) => ({ start: sl.start, text: `${sl.start}–${sl.end} ${s.name}`, min: toMin(sl.end) - toMin(sl.start) })),
+          .map((sl) => ({
+            start: sl.start,
+            end: sl.end,
+            subject: s,
+            room: sl.room || s.room,
+            text: `${sl.start}–${sl.end} ${s.name}`,
+            min: toMin(sl.end) - toMin(sl.start),
+          })),
       )
       .sort((x, y) => x.start.localeCompare(y.start))
     const examsToday = exams.filter((e) => isoDate(e.at) === iso)
+    fixed.set(iso, [
+      ...classes.map((c) => ({
+        id: uid(),
+        kind: 'class' as const,
+        topic: `Clase de ${c.subject.name}`,
+        activity: c.room ? `Aula ${c.room}` : '',
+        minutes: c.min,
+        time: `${c.start}–${c.end}`,
+        color: c.subject.color,
+        done: false,
+      })),
+      ...examsToday.map((e) => ({
+        id: uid(),
+        kind: 'exam' as const,
+        examId: e.id,
+        topic: `${examTypeLabel(e.type)}: ${e.title}`,
+        activity: e.location ? `Lugar: ${e.location}` : '',
+        minutes: 0,
+        time: hhmm(e.at),
+        done: false,
+      })),
+    ])
     let line = `- ${iso} (${dayLong(wd).toLowerCase()})`
     if (iso === isoDate(now)) line += ` (es hoy; ya son las ${hhmm(now)}, planifica sólo desde ahora)`
     line += classes.length
@@ -132,7 +164,7 @@ async function buildRequest(input: GuideInput, now = Date.now()): Promise<Built>
       `Hoy es ${isoDate(now)} y son las ${hhmm(now)}.`,
       `Arma un plan de estudio día por día desde ${input.startDate} hasta el día del último examen.`,
       '',
-      'Calendario con sus horarios de cursada (decide tú cuánto estudiar cada día y en qué horario):',
+      'Calendario con sus horarios de cursada. Las clases y los exámenes se agregan solos al plan: no los incluyas como bloques; arma el estudio sólo en los huecos libres.',
       ...calendar,
       ...(input.extra.trim() ? ['', `Indicaciones del estudiante: ${input.extra.trim()}`] : []),
       '',
@@ -191,22 +223,32 @@ async function buildRequest(input: GuideInput, now = Date.now()): Promise<Built>
     }
   }
 
-  return { parts, skipped, codes, days }
+  return { parts, skipped, codes, days, fixed }
 }
 
-const SYSTEM = `Eres un tutor que arma planes de estudio para estudiantes universitarios y secundarios.
-Escribe en español rioplatense neutro, claro y breve.
-Reglas:
-- Usa el material adjunto (apuntes, resúmenes, PDFs, fotos) para decidir qué temas estudiar y cuánto pesa cada uno.
-- Prioriza lo que está marcado como "Sin ver" o "Repasar" y los exámenes más cercanos o con más peso.
-- No hay un tiempo disponible fijo: decide cuánto estudiar cada día según la cantidad de temas y material, lo que falta para cada examen y sus horarios de cursada.
-- Días con muchas horas de clase: poco estudio (o nada). Días sin clases o fines de semana: más tiempo. Sé realista: en general no más de 4 h por día, salvo justo antes de un examen difícil con mucho material.
-- Si hay poco para estudiar, no llenes todos los días: deja días libres.
-- A cada bloque ponle un "horario" sugerido (HH:MM–HH:MM) que no se superponga con las clases ni con el examen, dejando un margen para traslados y comidas, entre las 08:00 y las 23:00.
-- Bloques de 20 a 90 minutos. Incluye repasos espaciados, ejercicios o práctica activa, y un repaso corto el día anterior a cada examen.
-- El día del examen sólo un repaso liviano antes de la hora del examen, o nada.
-- Para una presentación o trabajo práctico, incluye preparar el contenido y ensayarla.
-- "examen" debe ser el código del examen (E1, E2…). "material" nombra el apunte o archivo a usar, si corresponde.
+const SYSTEM = `Eres un tutor experto que arma cronogramas de estudio muy concretos, hora por hora, para estudiantes universitarios y secundarios.
+Escribe en español rioplatense (vos), claro y directo.
+
+Cómo leer el material:
+- Lee de verdad los apuntes, resúmenes, PDFs y fotos adjuntos. Divide el contenido en partes concretas: por unidad, resultado de aprendizaje, capítulo o rango de páginas (por ejemplo "RA1 — Páginas 1 a 4").
+- En cada bloque de estudio lista en "puntos" los subtemas exactos que aparecen en el material (3 a 7 viñetas cortas), no generalidades.
+- Si no hay material, usa los temas cargados del examen y divídelos igual.
+
+Cómo armar cada día:
+- Decide cuánto estudiar según la cantidad de material, lo que falta para cada examen y las clases de ese día. Con mucho material y pocos días, días completos (por ejemplo 08:00 a 22:00); con poco, menos horas y algún día libre.
+- Respeta las clases: no pongas nada que se superponga con una clase ni con el examen, y deja 30 a 60 minutos de margen antes y después para traslados.
+- Bloques de estudio de 45 a 105 minutos, con descansos de 10 a 15 minutos entre ellos y comidas en horarios normales (desayuno, almuerzo 12:00–13:30, merienda, cena 19:00–20:30) si el día los abarca.
+- Empieza cada día con un bloque corto de preparación (material listo, agua, celular en silencio).
+- Progresión: primero días de aprendizaje (contenido nuevo), luego de consolidación (repasos espaciados y puntos débiles), después simulacros con preguntas mezcladas sin mirar los apuntes y un bloque para corregir errores.
+- Termina cada día con un repaso liviano. La noche anterior al examen, nada de temas nuevos.
+- El día del examen: sólo un repaso breve de lo clave antes de la hora, con margen para llegar.
+- Para presentaciones: preparar el contenido, revisar las diapositivas, ensayar en voz alta midiendo el tiempo y preparar respuestas a preguntas posibles.
+- Si hoy forma parte del plan, empieza después de la hora actual.
+
+Formato:
+- "titulo" de cada día: un nombre corto como "Día de aprendizaje", "Día de consolidación", "Día de simulacro" o "Repaso final".
+- Cada bloque lleva "inicio" y "fin" (HH:MM), "tipo", un "titulo" corto (para descansos y comidas: "Descanso", "Almuerzo y descanso", etc.), "detalle" en una oración, "puntos" (sólo en estudio y repaso), "cierre" con una consigna concreta de autoevaluación (por ejemplo "Al terminar: explicá estos conceptos sin mirar"), "examen" con el código (E1, E2…) y "material" con el nombre del archivo o apunte a usar, si corresponde.
+- Los bloques de un día van en orden y sin superponerse.
 - "resumen": 2 o 3 oraciones con la estrategia general. "consejos": 3 a 5 consejos concretos para este caso.`
 
 const SCHEMA = {
@@ -219,23 +261,27 @@ const SCHEMA = {
         type: 'OBJECT',
         properties: {
           fecha: { type: 'STRING', description: 'AAAA-MM-DD' },
+          titulo: { type: 'STRING' },
           bloques: {
             type: 'ARRAY',
             items: {
               type: 'OBJECT',
               properties: {
+                inicio: { type: 'STRING', description: 'HH:MM' },
+                fin: { type: 'STRING', description: 'HH:MM' },
+                tipo: { type: 'STRING', enum: ['estudio', 'repaso', 'simulacro', 'preparacion', 'descanso', 'comida'] },
+                titulo: { type: 'STRING' },
+                detalle: { type: 'STRING' },
+                puntos: { type: 'ARRAY', items: { type: 'STRING' } },
+                cierre: { type: 'STRING' },
                 examen: { type: 'STRING' },
-                tema: { type: 'STRING' },
-                actividad: { type: 'STRING' },
-                minutos: { type: 'INTEGER' },
-                horario: { type: 'STRING', description: 'HH:MM–HH:MM' },
                 material: { type: 'STRING' },
               },
-              required: ['examen', 'tema', 'actividad', 'minutos'],
+              required: ['inicio', 'fin', 'tipo', 'titulo'],
             },
           },
         },
-        required: ['fecha', 'bloques'],
+        required: ['fecha', 'titulo', 'bloques'],
       },
     },
     consejos: { type: 'ARRAY', items: { type: 'STRING' } },
@@ -243,10 +289,31 @@ const SCHEMA = {
   required: ['resumen', 'dias', 'consejos'],
 }
 
+interface RawBlock {
+  inicio?: string
+  fin?: string
+  tipo?: string
+  titulo?: string
+  detalle?: string
+  puntos?: string[]
+  cierre?: string
+  examen?: string
+  material?: string
+}
+
 interface RawPlan {
   resumen?: string
-  dias?: { fecha?: string; bloques?: { examen?: string; tema?: string; actividad?: string; minutos?: number; horario?: string; material?: string }[] }[]
+  dias?: { fecha?: string; titulo?: string; bloques?: RawBlock[] }[]
   consejos?: string[]
+}
+
+const KINDS: Record<string, GuideBlockKind> = {
+  estudio: 'study',
+  repaso: 'review',
+  simulacro: 'practice',
+  preparacion: 'prep',
+  descanso: 'break',
+  comida: 'meal',
 }
 
 export class GuideError extends Error {}
@@ -374,12 +441,13 @@ async function callGemini(
   throw new GuideError('No se pudo usar Gemini.')
 }
 
-/** Normaliza "18:00 - 19:30" → "18:00–19:30"; undefined si no tiene forma de horario. */
-function parseRange(v: unknown): string | undefined {
-  const m = String(v ?? '').match(/(\d{1,2}):(\d{2})\s*[-–—a]+\s*(\d{1,2}):(\d{2})/)
-  if (!m) return undefined
-  const p = (h: string, mm: string) => `${h.padStart(2, '0')}:${mm}`
-  return `${p(m[1], m[2])}–${p(m[3], m[4])}`
+/** "8:30" → 510 minutos; null si no es una hora válida. */
+function parseTime(v: unknown): number | null {
+  const m = String(v ?? '').match(/(\d{1,2})[:.](\d{2})/)
+  if (!m) return null
+  const h = Number(m[1])
+  const min = Number(m[2])
+  return h < 24 && min < 60 ? h * 60 + min : null
 }
 
 /** Genera la guía y la devuelve lista para guardar. */
@@ -406,23 +474,33 @@ export async function generateGuide(
   const byDate = new Map<string, GuideDay>()
   for (const d of raw.dias ?? []) {
     if (!d?.fecha || !valid.has(d.fecha)) continue
-    const day = byDate.get(d.fecha) ?? { date: d.fecha, blocks: [] }
+    const day = byDate.get(d.fecha) ?? { date: d.fecha, title: d.titulo?.trim() || undefined, blocks: [] }
     for (const b of d.bloques ?? []) {
-      const minutes = Math.round(Number(b?.minutos))
-      if (!b?.tema || !Number.isFinite(minutes) || minutes <= 0) continue
+      const start = parseTime(b?.inicio)
+      const end = parseTime(b?.fin)
+      if (!b?.titulo || start == null || end == null || end <= start) continue
+      const kind = KINDS[String(b.tipo ?? '').toLowerCase()] ?? 'study'
+      const points = (b.puntos ?? []).map((x) => String(x).trim()).filter(Boolean).slice(0, 12)
       day.blocks.push({
         id: uid(),
+        kind,
         examId: built.codes.get(String(b.examen ?? '').trim().toUpperCase()),
-        topic: b.tema.trim(),
-        activity: (b.actividad ?? '').trim(),
-        minutes: Math.min(minutes, 8 * 60),
+        topic: b.titulo.trim(),
+        activity: (b.detalle ?? '').trim(),
+        minutes: Math.min(end - start, 8 * 60),
+        points: points.length ? points : undefined,
+        check: b.cierre?.trim() || undefined,
         material: b.material?.trim() || undefined,
-        time: parseRange(b.horario),
+        time: `${fromMin(start)}–${fromMin(end)}`,
         done: false,
       })
     }
-    day.blocks.sort((x, y) => (x.time ?? '99').localeCompare(y.time ?? '99'))
     if (day.blocks.length) byDate.set(d.fecha, day)
+  }
+  // Clases y exámenes de cada día con estudio, para ver el día completo.
+  for (const day of byDate.values()) {
+    day.blocks.push(...(built.fixed.get(day.date) ?? []))
+    day.blocks.sort((x, y) => (x.time ?? '99').localeCompare(y.time ?? '99'))
   }
   const days = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date))
   if (!days.length) throw new GuideError('Gemini no armó ningún día de estudio. Revisa el tiempo disponible e inténtalo de nuevo.')
