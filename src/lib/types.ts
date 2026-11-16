@@ -25,6 +25,9 @@ export interface Subject extends Base {
   name: string
   code: string
   color: string // hex
+  /** Docentes de la materia (titular, adjunto, ayudantes…). */
+  professors?: string[]
+  /** @deprecated un solo docente, de versiones anteriores; usar `professorsOf()`. */
   professor?: string
   room?: string
   /** Horarios estructurados por día. */

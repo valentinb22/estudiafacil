@@ -1,12 +1,14 @@
 import clsx from 'clsx'
-import { Check } from 'lucide-react'
+import { Check, Plus, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Button } from '../../components/ui/Button'
+import { flushSync } from 'react-dom'
+import { Button, IconButton } from '../../components/ui/Button'
 import { Field, Input } from '../../components/ui/Form'
 import { Modal } from '../../components/ui/Modal'
-import { create, update } from '../../lib/db'
+import { create, uid, update } from '../../lib/db'
 import { isValidSlot } from '../../lib/schedule'
+import { professorsOf } from '../../lib/subjects'
 import type { ScheduleSlot, Subject } from '../../lib/types'
 import { ScheduleEditor } from './ScheduleEditor'
 
@@ -28,20 +30,20 @@ interface FormState {
   name: string
   code: string
   color: string
-  professor: string
+  professors: { id: string; name: string }[]
   room: string
   slots: ScheduleSlot[]
 }
 
 const empty = (color: string): FormState => ({
-  name: '', code: '', color, professor: '', room: '', slots: [],
+  name: '', code: '', color, professors: [{ id: uid(), name: '' }], room: '', slots: [],
 })
 
 const fromSubject = (s: Subject): FormState => ({
   name: s.name,
   code: s.code,
   color: s.color,
-  professor: s.professor ?? '',
+  professors: (professorsOf(s).length ? professorsOf(s) : ['']).map((name) => ({ id: uid(), name })),
   room: s.room ?? '',
   slots: s.slots ?? [],
 })
@@ -81,7 +83,11 @@ export function SubjectForm({
       name: f.name.trim(),
       code: f.code.trim().toUpperCase(),
       color: f.color,
-      professor: f.professor.trim() || undefined,
+      professors: (() => {
+        const list = [...new Set(f.professors.map((p) => p.name.trim()).filter(Boolean))]
+        return list.length ? list : undefined
+      })(),
+      professor: undefined, // reemplazado por `professors`
       room: f.room.trim() || undefined,
       slots: f.slots.map((x) => ({ ...x, room: x.room?.trim() || undefined })),
       // Al guardar con horarios estructurados se descarta el texto libre y los créditos antiguos.
@@ -133,12 +139,11 @@ export function SubjectForm({
             />
           )}
         </Field>
-        <Field label="Profesor/a" className="sm:col-span-3">
-          {(id) => (
-            <Input id={id} value={f.professor} onChange={(e) => set('professor', e.target.value)} placeholder="Dra. García" />
-          )}
-        </Field>
-        <Field label="Aula" className="sm:col-span-3">
+        <ProfessorsField
+          value={f.professors}
+          onChange={(professors) => set('professors', professors)}
+        />
+        <Field label="Aula" className="sm:col-span-2">
           {(id) => <Input id={id} value={f.room} onChange={(e) => set('room', e.target.value)} placeholder="Aula 204" />}
         </Field>
         <ScheduleEditor key={loadKey} value={f.slots} onChange={(slots) => set('slots', slots)} defaultRoom={f.room.trim() || undefined} />
@@ -188,5 +193,60 @@ export function SubjectForm({
         <button type="submit" hidden aria-hidden tabIndex={-1} />
       </form>
     </Modal>
+  )
+}
+
+/** Lista editable de docentes: una fila por persona, Enter agrega otra. */
+function ProfessorsField({
+  value,
+  onChange,
+}: {
+  value: { id: string; name: string }[]
+  onChange: (v: { id: string; name: string }[]) => void
+}) {
+  const add = () => {
+    const id = uid()
+    // flushSync: la fila nueva existe en el DOM antes de mover el foco (tipeo rápido tras Enter).
+    flushSync(() => onChange([...value, { id, name: '' }]))
+    document.getElementById(`prof-${id}`)?.focus()
+  }
+  return (
+    <fieldset className="flex flex-col gap-1.5 sm:col-span-4">
+      <legend className="mb-1.5 text-[13px] font-medium text-ink-2">
+        {value.length > 1 ? `Profesores (${value.length})` : 'Profesor/a'}
+      </legend>
+      <ul className="flex flex-col gap-2">
+        {value.map((p, i) => (
+          <li key={p.id} className="flex items-center gap-1.5">
+            <Input
+              id={`prof-${p.id}`}
+              value={p.name}
+              onChange={(e) => onChange(value.map((x) => (x.id === p.id ? { ...x, name: e.target.value } : x)))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && i === value.length - 1 && p.name.trim()) {
+                  e.preventDefault()
+                  add()
+                }
+              }}
+              placeholder={i === 0 ? 'Dra. García (titular)' : 'Lic. Pérez (práctica)'}
+              aria-label={`Profesor/a ${i + 1}`}
+            />
+            {value.length > 1 && (
+              <IconButton
+                label={`Quitar ${p.name.trim() || `profesor/a ${i + 1}`}`}
+                onClick={() => onChange(value.filter((x) => x.id !== p.id))}
+              >
+                <X />
+              </IconButton>
+            )}
+          </li>
+        ))}
+      </ul>
+      <div>
+        <Button size="sm" variant="ghost" icon={<Plus />} onClick={add} className="-ml-2">
+          Agregar profesor/a
+        </Button>
+      </div>
+    </fieldset>
   )
 }

@@ -1,9 +1,10 @@
 import clsx from 'clsx'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
-  BookOpen, CalendarClock, Clock, Filter, FileText, Headphones, ListTodo, MapPin, Pencil, Plus, Trash2, User,
+  BookOpen, CalendarClock, Clock, Filter, FileText, Headphones, ListTodo, MapPin, Pencil, Plus, Trash2, User, Users,
 } from 'lucide-react'
 import { summarizeSlots } from '../../lib/schedule'
+import { professorsOf } from '../../lib/subjects'
 import type { ReactNode } from 'react'
 import { useMemo, useState } from 'react'
 import { Button, IconButton } from '../../components/ui/Button'
@@ -69,7 +70,7 @@ export function SubjectsPage() {
   const filtered = useMemo(() => {
     const nq = norm(q.trim())
     if (!nq) return subjects
-    return subjects.filter((s) => norm(`${s.name} ${s.code} ${s.professor ?? ''}`).includes(nq))
+    return subjects.filter((s) => norm(`${s.name} ${s.code} ${professorsOf(s).join(' ')}`).includes(nq))
   }, [subjects, q])
 
   const openNew = () => {
@@ -207,8 +208,13 @@ function SubjectCard({
   onEdit: () => void
   onDelete: () => void
 }) {
+  const profs = professorsOf(s)
   const details: { icon: ReactNode; label: string; value?: string }[] = [
-    { icon: <User />, label: 'Profesor/a', value: s.professor },
+    {
+      icon: profs.length > 1 ? <Users /> : <User />,
+      label: profs.length > 1 ? 'Profesores' : 'Profesor/a',
+      value: profs.join(', ') || undefined,
+    },
     { icon: <MapPin />, label: 'Aula', value: s.room },
     { icon: <Clock />, label: 'Horario', value: summarizeSlots(s) },
   ]
