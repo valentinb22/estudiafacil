@@ -75,11 +75,45 @@ function blobToBase64(b: Blob): Promise<string> {
   })
 }
 
+/** Niveles de intensidad: cuánto tiempo dedicar al estudio. */
+export const INTENSITIES = [
+  { level: 1, label: 'Liviano', free: '1 a 2 h', classes: 'hasta 1 h', hint: 'Lo justo, con mucho tiempo libre.' },
+  { level: 2, label: 'Moderado', free: '2 a 3 h', classes: '1 a 1,5 h', hint: 'Constante, sin cansarte.' },
+  { level: 3, label: 'Equilibrado', free: '3 a 5 h', classes: '1,5 a 2 h', hint: 'Buen ritmo con descansos.' },
+  { level: 4, label: 'Intenso', free: '5 a 7 h', classes: '2 a 3 h', hint: 'Mucho estudio, días largos.' },
+  { level: 5, label: 'Máximo', free: '8 a 10 h', classes: '3 a 4 h', hint: 'Jornadas completas, de 08:00 a 22:00.' },
+] as const
+
+export type Intensity = (typeof INTENSITIES)[number]['level']
+
+const INTENSITY_STORAGE = 'ef-guide-intensity'
+
+export function loadIntensity(): Intensity {
+  try {
+    const v = Number(localStorage.getItem(INTENSITY_STORAGE))
+    if (v >= 1 && v <= 5) return v as Intensity
+  } catch {
+    /* sin datos */
+  }
+  return 3
+}
+
+export function saveIntensity(v: Intensity) {
+  try {
+    localStorage.setItem(INTENSITY_STORAGE, String(v))
+  } catch {
+    /* almacenamiento no disponible */
+  }
+}
+
+export const intensityOf = (v: number) => INTENSITIES.find((x) => x.level === v) ?? INTENSITIES[2]
+
 export interface GuideInput {
   exams: Exam[]
   /** Primer día del plan ("AAAA-MM-DD"). */
   startDate: string
   extra: string
+  intensity: Intensity
 }
 
 interface Built {
@@ -164,6 +198,15 @@ async function buildRequest(input: GuideInput, now = Date.now()): Promise<Built>
       `Hoy es ${isoDate(now)} y son las ${hhmm(now)}.`,
       `Arma un plan de estudio día por día desde ${input.startDate} hasta el día del último examen.`,
       '',
+      (() => {
+        const it = intensityOf(input.intensity)
+        return [
+          `INTENSIDAD ELEGIDA: ${it.level} de 5 — ${it.label}.`,
+          `Apunta a unas ${it.free} de estudio efectivo (sin contar descansos ni comidas) en días sin clases y ${it.classes} en días con clases.`,
+          'Respeta este nivel aunque haya poco o mucho material: si sobra tiempo, suma repasos, ejercicios y simulacros; si falta, prioriza lo más importante.',
+          '',
+        ].join('\n')
+      })(),
       'Calendario con sus horarios de cursada. Las clases y los exámenes se agregan solos al plan: no los incluyas como bloques; arma el estudio sólo en los huecos libres.',
       ...calendar,
       '',
@@ -248,7 +291,7 @@ Cómo leer el material:
 - Si no hay material, usa los temas cargados del examen y divídelos igual.
 
 Cómo armar cada día:
-- Decide cuánto estudiar según la cantidad de material, lo que falta para cada examen y las clases de ese día. Con mucho material y pocos días, días completos (por ejemplo 08:00 a 22:00); con poco, menos horas y algún día libre.
+- Las horas de estudio por día las fija la INTENSIDAD ELEGIDA por el estudiante (1 = liviano … 5 = máximo). Reparte ese tiempo según la cantidad de material, lo que falta para cada examen y las clases de cada día: más tiempo los días libres y menos los días con muchas clases.
 - Respeta las clases: no pongas nada que se superponga con una clase ni con el examen, y deja 30 a 60 minutos de margen antes y después para traslados.
 - Bloques de estudio de 45 a 105 minutos, con descansos de 10 a 15 minutos entre ellos y comidas en horarios normales (desayuno, almuerzo 12:00–13:30, merienda, cena 19:00–20:30) si el día los abarca.
 - Empieza cada día con un bloque corto de preparación (material listo, agua, celular en silencio).
@@ -544,6 +587,7 @@ export async function generateGuide(
     model,
     skipped: built.skipped.length ? built.skipped : undefined,
     request: input.extra.trim() || undefined,
+    intensity: input.intensity,
     extras: (() => {
       const list = (raw.extras ?? [])
         .map((x) => ({ title: String(x?.titulo ?? '').trim(), body: String(x?.contenido ?? '').trim() }))

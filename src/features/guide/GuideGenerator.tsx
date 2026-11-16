@@ -12,7 +12,10 @@ import { isValidSlot, WEEK } from '../../lib/schedule'
 import { fmtDateTime, relative } from '../../lib/time'
 import type { Exam } from '../../lib/types'
 import { examTypeLabel } from '../exams/examUtils'
-import { generateGuide, getApiKey, GuideError, isoDate, setApiKey } from './gemini'
+import type { Intensity } from './gemini'
+import {
+  generateGuide, getApiKey, GuideError, INTENSITIES, intensityOf, isoDate, loadIntensity, saveIntensity, setApiKey,
+} from './gemini'
 
 /** Lunes primero. */
 const WEEK_ORDER = [...WEEK.filter((w) => w.day !== 0), WEEK.find((w) => w.day === 0)!]
@@ -36,6 +39,7 @@ export function GuideGenerator({
   const subjects = useSubjects()
   const [startDate, setStartDate] = useState(() => isoDate(now))
   const [extra, setExtra] = useState('')
+  const [intensity, setIntensity] = useState<Intensity>(loadIntensity)
   const [key, setKey] = useState(getApiKey)
   const [keyDraft, setKeyDraft] = useState('')
   const [editingKey, setEditingKey] = useState(false)
@@ -115,7 +119,7 @@ export function GuideGenerator({
     const ctrl = new AbortController()
     abort.current = ctrl
     try {
-      const guide = await generateGuide({ exams: chosen, startDate, extra }, ctrl.signal, setStatus)
+      const guide = await generateGuide({ exams: chosen, startDate, extra, intensity }, ctrl.signal, setStatus)
       const id = await create('guides', guide)
       onCreated(id)
       onClose()
@@ -218,6 +222,54 @@ export function GuideGenerator({
               />
             )}
           </Field>
+        </section>
+
+        <section aria-labelledby="g-intensity">
+          <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+            <h3 id="g-intensity" className="text-sm font-semibold">
+              Intensidad
+            </h3>
+            <span className="text-sm font-medium text-accent">{intensityOf(intensity).label}</span>
+          </div>
+          <p className="mb-3 text-xs text-ink-2">
+            {intensityOf(intensity).hint} Unas{' '}
+            <span className="font-medium text-ink">{intensityOf(intensity).free}</span> de estudio los días libres y{' '}
+            <span className="font-medium text-ink">{intensityOf(intensity).classes}</span> los días con clases.
+          </p>
+          <input
+            type="range"
+            min={1}
+            max={5}
+            step={1}
+            value={intensity}
+            onChange={(e) => {
+              const v = Number(e.target.value) as Intensity
+              setIntensity(v)
+              saveIntensity(v)
+            }}
+            aria-label="Intensidad de estudio"
+            aria-valuetext={intensityOf(intensity).label}
+            className="w-full cursor-pointer accent-[rgb(var(--accent))]"
+          />
+          <div className="mt-1 grid grid-cols-5 text-[11px] text-ink-3" aria-hidden>
+            {INTENSITIES.map((it, i) => (
+              <button
+                key={it.level}
+                type="button"
+                tabIndex={-1}
+                onClick={() => {
+                  setIntensity(it.level)
+                  saveIntensity(it.level)
+                }}
+                className={clsx(
+                  i === 0 ? 'text-left' : i === INTENSITIES.length - 1 ? 'text-right' : 'text-center',
+                  it.level === intensity && 'font-medium text-accent',
+                )}
+              >
+                {it.label}
+              </button>
+            ))}
+          </div>
         </section>
 
         <Field

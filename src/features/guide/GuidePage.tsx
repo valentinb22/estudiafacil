@@ -14,7 +14,7 @@ import { useNow, useSubjectMap } from '../../lib/hooks'
 import type { Exam, GuideBlock, StudyGuide } from '../../lib/types'
 import { examTypeLabel } from '../exams/examUtils'
 import { GuideGenerator } from './GuideGenerator'
-import { isoDate, parseIsoDate } from './gemini'
+import { intensityOf, isoDate, parseIsoDate } from './gemini'
 
 const weekdayFmt = new Intl.DateTimeFormat('es', { weekday: 'long' })
 const monthDayFmt = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'long' })
@@ -186,7 +186,9 @@ function GuideView({ guide }: { guide: StudyGuide }) {
               {guide.title}
             </h2>
             <p className="mt-0.5 text-xs text-ink-2">
-              Creada el {shortFmt.format(guide.createdAt)} · {guide.days.length} {guide.days.length === 1 ? 'día' : 'días'} ·{' '}
+              Creada el {shortFmt.format(guide.createdAt)} ·{' '}
+              {guide.intensity ? `Intensidad ${intensityOf(guide.intensity).label.toLowerCase()} · ` : ''}
+              {guide.days.length} {guide.days.length === 1 ? 'día' : 'días'} ·{' '}
               {fmtMin(total)} de estudio
             </p>
           </div>

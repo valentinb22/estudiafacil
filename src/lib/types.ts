@@ -188,6 +188,8 @@ export interface StudyGuide extends Base {
   skipped?: string[]
   /** Indicaciones que escribió el estudiante al generarla. */
   request?: string
+  /** Intensidad elegida (1 liviano … 5 máximo). */
+  intensity?: number
   /** Contenido pedido aparte del cronograma (guiones, resúmenes, preguntas…). */
   extras?: { title: string; body: string }[]
 }
