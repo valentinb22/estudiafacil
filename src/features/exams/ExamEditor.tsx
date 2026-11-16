@@ -7,8 +7,10 @@ import { SubjectSelect } from '../../components/ui/SubjectSelect'
 import { create, update } from '../../lib/db'
 import { useUI } from '../../lib/store'
 import { DAY, fromLocalInput, toLocalInput } from '../../lib/time'
-import type { Exam, ExamTopic, ExamType } from '../../lib/types'
+import type { Exam, ExamMaterialRef, ExamTopic, ExamType } from '../../lib/types'
 import { EXAM_TYPES, LEVELS, parseTopics } from './examUtils'
+import { MaterialsEditor, savePendingMaterials } from './ExamMaterials'
+import type { PendingFile, PendingNote } from './ExamMaterials'
 
 interface Draft {
   title: string
@@ -20,6 +22,7 @@ interface Draft {
   targetGrade: string
   notes: string
   topics: ExamTopic[]
+  materials: ExamMaterialRef[]
 }
 
 function defaultAt(): number {
@@ -39,6 +42,7 @@ function toDraft(exam: Exam | null, subjectId?: string): Draft {
     targetGrade: exam?.targetGrade != null ? String(exam.targetGrade) : '',
     notes: exam?.notes ?? '',
     topics: exam?.topics.map((t) => ({ ...t })) ?? [],
+    materials: exam?.materials ?? [],
   }
 }
 
@@ -62,11 +66,15 @@ export function ExamEditor({
   const [d, setD] = useState<Draft>(() => toDraft(exam, subjectFilter ?? undefined))
   const [bulk, setBulk] = useState('')
   const [saving, setSaving] = useState(false)
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])
+  const [pendingNotes, setPendingNotes] = useState<PendingNote[]>([])
 
   useEffect(() => {
     if (open) {
       setD(toDraft(exam, subjectFilter ?? undefined))
       setBulk('')
+      setPendingFiles([])
+      setPendingNotes([])
     }
     // Sólo al abrir o cambiar de examen.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -86,6 +94,13 @@ export function ExamEditor({
     if (!valid || saving) return
     setSaving(true)
     const pending = parseTopics(bulk)
+    let added: ExamMaterialRef[]
+    try {
+      added = await savePendingMaterials(d.subjectId, pendingFiles, pendingNotes)
+    } catch {
+      setSaving(false)
+      return
+    }
     const data = {
       title: d.title.trim(),
       type: d.type,
@@ -96,6 +111,7 @@ export function ExamEditor({
       targetGrade: num(d.targetGrade),
       notes: d.notes.trim() || undefined,
       topics: [...d.topics.filter((t) => t.name.trim()), ...pending].map((t) => ({ ...t, name: t.name.trim() })),
+      materials: [...d.materials, ...added],
     }
     try {
       if (exam) await update('exams', exam.id, data)
@@ -300,6 +316,16 @@ export function ExamEditor({
           </Button>
         </div>
       </section>
+
+      <MaterialsEditor
+        subjectId={d.subjectId}
+        refs={d.materials}
+        onRefsChange={(v) => set('materials', v)}
+        pendingFiles={pendingFiles}
+        onPendingFilesChange={setPendingFiles}
+        pendingNotes={pendingNotes}
+        onPendingNotesChange={setPendingNotes}
+      />
     </Modal>
   )
 }

@@ -69,6 +69,12 @@ export interface ExamTopic {
   level: TopicLevel
 }
 
+/** Material de estudio vinculado a un examen (archivo, nota o enlace que ya existe en la app). */
+export interface ExamMaterialRef {
+  kind: 'file' | 'note' | 'resource'
+  id: string
+}
+
 export interface Exam extends Base {
   subjectId?: string
   title: string
@@ -79,6 +85,8 @@ export interface Exam extends Base {
   targetGrade?: number
   notes?: string
   topics: ExamTopic[]
+  /** Resúmenes, apuntes, guías… vinculados al examen. */
+  materials?: ExamMaterialRef[]
 }
 
 export interface Note extends Base {

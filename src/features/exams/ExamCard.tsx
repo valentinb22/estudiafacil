@@ -7,6 +7,7 @@ import { useNow, useSubjectMap } from '../../lib/hooks'
 import { useUI } from '../../lib/store'
 import { fmtDateTime, parts, relative, urgency } from '../../lib/time'
 import type { Exam, TopicLevel } from '../../lib/types'
+import { ExamMaterialsList } from './ExamMaterials'
 import { examTypeLabel, levelLabel, nextLevel, preparation } from './examUtils'
 
 const p2 = (n: number) => String(n).padStart(2, '0')
@@ -131,6 +132,8 @@ export function ExamCard({
       </dl>
 
       {exam.notes && <p className="mt-3 whitespace-pre-wrap text-sm text-ink-2 line-clamp-4">{exam.notes}</p>}
+
+      <ExamMaterialsList refs={exam.materials} />
 
       <div className="mt-4 border-t border-line pt-4">
         <div className="flex items-end justify-between gap-3">
