@@ -25,11 +25,16 @@ export function Modal({
   size?: 'sm' | 'md' | 'lg' | 'xl'
 }) {
   const ref = useRef<HTMLDivElement>(null)
+  // onClose en ref: un onClose inline no debe re-ejecutar el efecto (robaría el foco al tipear).
+  const closeRef = useRef(onClose)
+  useEffect(() => {
+    closeRef.current = onClose
+  })
 
   useEffect(() => {
     if (!open) return
     const prev = document.activeElement as HTMLElement | null
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeRef.current()
     document.addEventListener('keydown', onKey)
     const overflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -42,7 +47,7 @@ export function Modal({
       document.body.style.overflow = overflow
       prev?.focus?.()
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
 
