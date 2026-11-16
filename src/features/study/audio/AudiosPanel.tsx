@@ -21,7 +21,7 @@ import { downloadAudio, fullOrderFromSubset, nextAudioOrder, readDuration } from
 const REPEAT_OPTIONS: { value: RepeatMode; label: string }[] = [
   { value: 'off', label: 'Normal' },
   { value: 'loop-one', label: 'Bucle de 1 audio' },
-  { value: 'double-next', label: 'Secuencia 2x & Siguiente' },
+  { value: 'double-next', label: 'Secuencia 2x y siguiente' },
 ]
 const REPEAT_HINT: Record<RepeatMode, string> = {
   off: 'Reproduce la lista en orden y se detiene al final.',
@@ -160,7 +160,7 @@ export function AudiosPanel() {
 
       <div className="mb-5 flex flex-col gap-1.5">
         <SegmentedControl label="Modo de repetición" value={repeat} onChange={setRepeat} options={REPEAT_OPTIONS} />
-        <p className="text-xs text-ink-3">{REPEAT_HINT[repeat]}</p>
+        <p className="text-xs text-ink-2">{REPEAT_HINT[repeat]}</p>
       </div>
 
       <p className="sr-only" aria-live="polite">
@@ -176,7 +176,15 @@ export function AudiosPanel() {
           action={<div className="flex flex-wrap justify-center gap-2">{actions}</div>}
         />
       ) : visible.length === 0 ? (
-        <EmptyState title="Sin resultados" description="Ningún audio coincide con tu búsqueda." />
+        <EmptyState
+          title="Sin resultados"
+          description="Ningún audio coincide con tu búsqueda."
+          action={
+            <Button size="sm" onClick={() => setQuery('')}>
+              Limpiar búsqueda
+            </Button>
+          }
+        />
       ) : (
         <SortableGrid
           items={visible}
@@ -264,7 +272,7 @@ function AudioCard({
             <span className="font-mono text-xs text-ink-2 tnum">
               {audio.durationSec ? fmtDuration(audio.durationSec) : '—:—'}
             </span>
-            <span className="text-xs text-ink-3">· {fmtBytes(audio.size)}</span>
+            <span className="text-xs text-ink-2">· {fmtBytes(audio.size)}</span>
             {isCurrent && repeat === 'double-next' && (
               <Badge tone="accent" className="font-mono tnum">
                 Pase {pass}/2

@@ -16,11 +16,11 @@ function Countdown({ at }: { at: number }) {
   const p = parts(at, now)
   const u = urgency(at, now)
   if (p.past) {
-    return <p className="font-mono text-sm text-ink-3 tnum">{relative(at, now)}</p>
+    return <p className="font-mono text-sm text-ink-2 tnum">{relative(at, now)}</p>
   }
   const tone = u === 'urgent' ? 'text-danger' : u === 'soon' ? 'text-warn' : 'text-ink'
   return (
-    <div className={clsx('flex items-baseline gap-2', tone)} aria-label={`Faltan ${relative(at, now).replace(/^en /, '')}`}>
+    <div role="timer" className={clsx('flex items-baseline gap-2', tone)} aria-label={`Faltan ${relative(at, now).replace(/^en /, '')}`}>
       {p.days > 0 && (
         <span className="font-serif text-4xl leading-none tnum">
           {p.days}
@@ -35,7 +35,7 @@ function Countdown({ at }: { at: number }) {
 }
 
 const levelStyles: Record<TopicLevel, string> = {
-  unseen: 'border-line text-ink-3',
+  unseen: 'border-line text-ink-2',
   review: 'border-warn/40 bg-warn-soft text-warn',
   mastered: 'border-ok/40 bg-ok-soft text-ok',
 }
@@ -89,7 +89,7 @@ export function ExamCard({
         </IconButton>
       </div>
 
-      <h2 className="mt-3 text-lg font-semibold leading-snug">
+      <h2 className="mt-3 text-lg font-semibold leading-snug [overflow-wrap:anywhere]">
         {isNext ? <mark className="box-decoration-clone bg-hl-soft px-0.5 text-ink">{exam.title}</mark> : exam.title}
       </h2>
 
@@ -135,7 +135,7 @@ export function ExamCard({
       <div className="mt-4 border-t border-line pt-4">
         <div className="flex items-end justify-between gap-3">
           <div>
-            <p className="text-xs font-medium text-ink-3">Preparación</p>
+            <p className="text-xs font-medium text-ink-2">Preparación</p>
             <p className="font-serif text-3xl leading-none tnum">
               {pct == null ? '—' : pct}
               {pct != null && <span className="text-xl text-ink-2">%</span>}
@@ -183,7 +183,7 @@ export function ExamCard({
             ))}
           </ul>
         ) : (
-          <p className="mt-3 text-[13px] text-ink-3">
+          <p className="mt-3 text-[13px] text-ink-2">
             Sin temas cargados.{' '}
             <button type="button" className="font-medium text-accent hover:underline" onClick={() => onEdit(exam)}>
               Agrega temas

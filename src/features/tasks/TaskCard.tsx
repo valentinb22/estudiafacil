@@ -112,7 +112,7 @@ export function TaskCard({
             </span>
           )}
           {!done && (
-            <span className="inline-flex items-center gap-1 text-xs text-ink-3">
+            <span className="inline-flex items-center gap-1 text-xs text-ink-2">
               <Bell className="size-3" aria-hidden />
               Aviso {reminderLabel(t.remindBeforeMin)}
             </span>
@@ -151,7 +151,7 @@ export function TaskCard({
                         type="checkbox"
                         checked={c.done}
                         onChange={() => toggleStep(c.id)}
-                        className="mt-0.5 size-4 shrink-0 cursor-pointer rounded accent-[rgb(var(--accent))]"
+                        className="mt-0.5 size-4 shrink-0 cursor-pointer rounded accent-accent"
                       />
                       <span className={clsx('[overflow-wrap:anywhere]', c.done && 'text-ink-3 line-through')}>
                         {c.text}

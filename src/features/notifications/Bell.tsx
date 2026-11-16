@@ -80,7 +80,7 @@ export function Bell() {
           <header className="flex items-center justify-between gap-2 border-b border-line px-4 py-3">
             <div className="min-w-0">
               <h2 className="font-serif text-xl leading-none">Avisos</h2>
-              <p className="mt-1 text-xs text-ink-3">Próximos 7 días y vencidos</p>
+              <p className="mt-1 text-xs text-ink-2">Próximos 7 días y vencidos</p>
             </div>
             <IconButton size="sm" label="Cerrar avisos" onClick={() => setOpen(false)}>
               <X />
@@ -102,23 +102,23 @@ export function Bell() {
                     <Link
                       to={it.href}
                       onClick={() => setOpen(false)}
-                      className="flex gap-3 px-4 py-3 transition-colors hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:outline-none"
+                      className="flex gap-3 px-4 py-3 transition-colors hover:bg-surface-2 focus-visible:bg-surface-2"
                     >
                       <span className="relative mt-0.5 shrink-0 text-ink-3">
                         <Icon className="size-4" aria-hidden />
                         <span className={clsx('absolute -right-1 -top-1 size-2 rounded-full ring-2 ring-surface', toneDot[it.tone])} />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">{it.title}</span>
+                        <span className="block truncate text-sm font-medium" title={it.title}>{it.title}</span>
                         <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
                           <SubjectChip subjectId={it.subjectId} />
-                          <span className="text-xs text-ink-3">{it.kind === 'task' ? 'Tarea' : 'Examen'}</span>
+                          <span className="text-xs text-ink-2">{it.kind === 'task' ? 'Tarea' : 'Examen'}</span>
                           <span className={clsx('tnum font-mono text-xs xs:hidden', toneText[it.tone])}>{when}</span>
                         </span>
                       </span>
                       <span className="hidden shrink-0 text-right xs:block">
                         <span className={clsx('tnum block font-mono text-xs', toneText[it.tone])}>{when}</span>
-                        <span className="tnum mt-1 block font-mono text-[11px] text-ink-3">{fmtDateTime(it.at)}</span>
+                        <span className="tnum mt-1 block font-mono text-[11px] text-ink-2">{fmtDateTime(it.at)}</span>
                       </span>
                     </Link>
                   </li>

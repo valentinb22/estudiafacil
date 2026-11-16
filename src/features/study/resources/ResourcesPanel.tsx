@@ -79,7 +79,7 @@ export function ResourcesPanel() {
           description="Guarda videos, artículos, simuladores y libros que te ayuden a estudiar, organizados por materia."
           action={
             <Button variant="primary" icon={<Plus />} onClick={openNew}>
-              Agrega tu primer recurso
+              Crear recurso
             </Button>
           }
         />
@@ -137,7 +137,7 @@ export function ResourcesPanel() {
 }
 
 function Count({ n }: { n: number }) {
-  return <span className="ml-1 font-mono text-[11px] text-ink-3 tnum">{n}</span>
+  return <span className="ml-1 font-mono text-[11px] text-ink-2 tnum">{n}</span>
 }
 
 function ResourceCard({
@@ -169,7 +169,7 @@ function ResourceCard({
             {r.title}
             <span className="sr-only"> (se abre en una pestaña nueva)</span>
           </a>
-          <p className="mt-0.5 truncate font-mono text-xs text-ink-3" title={r.url}>
+          <p className="mt-0.5 truncate font-mono text-xs text-ink-2" title={r.url}>
             {hostname(r.url)}
           </p>
         </div>
@@ -195,10 +195,10 @@ function ResourceCard({
           >
             <ExternalLink className="size-4" />
           </a>
-          <IconButton size="sm" label="Editar" onClick={onEdit}>
+          <IconButton size="sm" label={`Editar ${r.title}`} onClick={onEdit}>
             <Pencil />
           </IconButton>
-          <IconButton size="sm" label="Eliminar" onClick={onDelete} className="hover:!bg-danger-soft hover:!text-danger">
+          <IconButton size="sm" label={`Eliminar ${r.title}`} onClick={onDelete} className="hover:!bg-danger-soft hover:!text-danger">
             <Trash2 />
           </IconButton>
         </div>

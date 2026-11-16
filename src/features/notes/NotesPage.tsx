@@ -176,7 +176,7 @@ function NoteCard({
         <span aria-hidden className="absolute left-0 top-4 h-6 w-[3px] rounded-r" style={{ background: subject.color }} />
       )}
       <div className="flex items-start gap-2">
-        <h2 className="min-w-0 flex-1 text-base font-semibold leading-snug">
+        <h2 className="min-w-0 flex-1 text-base font-semibold leading-snug [overflow-wrap:anywhere]">
           <button
             type="button"
             onClick={() => onOpen(note)}
@@ -185,7 +185,7 @@ function NoteCard({
             {note.pinned ? (
               <mark className="box-decoration-clone bg-hl-soft px-0.5 text-ink">{note.title || 'Sin título'}</mark>
             ) : (
-              note.title || <span className="text-ink-3">Sin título</span>
+              note.title || <span className="text-ink-2">Sin título</span>
             )}
           </button>
         </h2>
@@ -214,7 +214,7 @@ function NoteCard({
         {note.tags.map((t) => (
           <TagChip key={t} tag={t} active={activeTags.includes(t)} onClick={() => onTag(t)} />
         ))}
-        <span className="ml-auto font-mono text-[11px] text-ink-3 tnum">{fmtDate(note.updatedAt)}</span>
+        <span className="ml-auto font-mono text-[11px] text-ink-2 tnum">{fmtDate(note.updatedAt)}</span>
       </div>
     </Card>
   )

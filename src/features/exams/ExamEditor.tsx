@@ -227,7 +227,7 @@ export function ExamEditor({
           <h3 id="topics-heading" className="text-sm font-semibold">
             Temas
           </h3>
-          <span className="font-mono text-xs text-ink-3 tnum">{d.topics.length}</span>
+          <span className="font-mono text-xs text-ink-2 tnum">{d.topics.length}</span>
         </div>
 
         {d.topics.length > 0 && (

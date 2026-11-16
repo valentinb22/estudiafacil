@@ -10,7 +10,7 @@ import { Button, IconButton } from '../../components/ui/Button'
 import { ProgressBar, SubjectChip } from '../../components/ui/Display'
 import { SegmentedControl, Textarea } from '../../components/ui/Form'
 import { create, db } from '../../lib/db'
-import { playAlarm } from '../../lib/sound'
+import { playAlarm, unlockAudio } from '../../lib/sound'
 import { useUI } from '../../lib/store'
 import { fmtDate } from '../../lib/time'
 import type { Exam, ExamTopic } from '../../lib/types'
@@ -147,10 +147,16 @@ function Timer({ exam }: { exam?: Exam }) {
   // Tic basado en marca de tiempo objetivo: preciso aunque la pestaña esté en segundo plano.
   useEffect(() => {
     if (status !== 'running') return
+    // Intervalo, timeout y visibilitychange pueden disparar antes de que React desmonte el efecto:
+    // terminar una sola vez (si no, la alarma y la notificación salen duplicadas).
+    let finished = false
     const tick = () => {
+      if (finished) return
       const r = endAt.current - Date.now()
-      if (r <= 0) finish()
-      else setRemaining(r)
+      if (r <= 0) {
+        finished = true
+        finish()
+      } else setRemaining(r)
     }
     tick()
     const iv = setInterval(tick, 250)
@@ -178,6 +184,8 @@ function Timer({ exam }: { exam?: Exam }) {
   }, [running, label])
 
   const start = () => {
+    // Gesto del usuario: desbloquea el AudioContext para que la alarma suene al terminar.
+    unlockAudio()
     endAt.current = Date.now() + (status === 'done' ? duration : remaining)
     if (status === 'done') setRemaining(duration)
     setStatus('running')
@@ -222,7 +230,7 @@ function Timer({ exam }: { exam?: Exam }) {
             )}
           />
         </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <div className="absolute inset-0 flex flex-col items-center justify-center px-6">
           {status === 'done' ? (
             <>
               <span className="flex size-10 items-center justify-center rounded-full bg-ok-soft text-ok">
@@ -240,7 +248,7 @@ function Timer({ exam }: { exam?: Exam }) {
               >
                 {label}
               </span>
-              <span className="mt-2 font-mono text-xs uppercase tracking-wider text-ink-3">
+              <span className="mt-2 font-mono text-xs uppercase tracking-wider text-ink-2">
                 {status === 'running' ? 'Concentración' : status === 'paused' ? 'En pausa' : `${preset} minutos`}
               </span>
             </>
@@ -307,7 +315,7 @@ function notifyDone(exam?: Exam) {
 /* ------------------------------------------------------------------ */
 
 function SectionTitle({ children }: { children: ReactNode }) {
-  return <h3 className="text-xs font-medium uppercase tracking-wider text-ink-3">{children}</h3>
+  return <h3 className="text-xs font-medium uppercase tracking-wider text-ink-2">{children}</h3>
 }
 
 function ExamContext({ exam }: { exam: Exam }) {
@@ -318,7 +326,7 @@ function ExamContext({ exam }: { exam: Exam }) {
       <SectionTitle>Preparando</SectionTitle>
       <div className="min-w-0">
         <SubjectChip subjectId={exam.subjectId} />
-        <p className="mt-2 font-serif text-2xl leading-tight">{exam.title}</p>
+        <p className="mt-2 font-serif text-2xl leading-tight [overflow-wrap:anywhere]">{exam.title}</p>
       </div>
       {exam.topics.length > 0 ? (
         <>
@@ -335,7 +343,7 @@ function ExamContext({ exam }: { exam: Exam }) {
                     className={clsx('size-1.5 shrink-0 rounded-full', t.level === 'review' ? 'bg-warn' : 'bg-ink-3')}
                   />
                   <span className="min-w-0 flex-1 truncate">{t.name}</span>
-                  <span className="shrink-0 text-xs text-ink-3">{t.level === 'review' ? 'Repasar' : 'Sin ver'}</span>
+                  <span className="shrink-0 text-xs text-ink-2">{t.level === 'review' ? 'Repasar' : 'Sin ver'}</span>
                 </li>
               ))}
             </ul>
@@ -344,7 +352,7 @@ function ExamContext({ exam }: { exam: Exam }) {
           )}
         </>
       ) : (
-        <p className="text-sm text-ink-3">Este examen todavía no tiene temas.</p>
+        <p className="text-sm text-ink-2">Este examen todavía no tiene temas.</p>
       )}
     </section>
   )
@@ -474,7 +482,7 @@ function AmbientPanel() {
         </p>
       )}
       <div className="flex items-center gap-3">
-        <label htmlFor={volId} className="text-ink-3">
+        <label htmlFor={volId} className="text-ink-2">
           <Volume1 className="size-4" aria-hidden="true" />
           <span className="sr-only">Volumen</span>
         </label>

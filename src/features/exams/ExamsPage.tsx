@@ -78,8 +78,8 @@ export function ExamsPage() {
           value={when}
           onChange={setWhen}
           options={[
-            { value: 'upcoming', label: <>Próximos <span className="ml-1 font-mono text-ink-3 tnum">{upcomingCount}</span></> },
-            { value: 'past', label: <>Pasados <span className="ml-1 font-mono text-ink-3 tnum">{pastCount}</span></> },
+            { value: 'upcoming', label: <>Próximos <span className="ml-1 font-mono text-ink-2 tnum">{upcomingCount}</span></> },
+            { value: 'past', label: <>Pasados <span className="ml-1 font-mono text-ink-2 tnum">{pastCount}</span></> },
           ]}
         />
         <SegmentedControl<TypeFilter>

@@ -49,8 +49,10 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   prev: () => {
     const { queue, currentId } = get()
     if (!queue.length) return
-    const i = currentId ? queue.indexOf(currentId) : 0
-    set({ currentId: queue[(i - 1 + queue.length) % queue.length], pass: 1, playing: true })
+    const i = currentId ? queue.indexOf(currentId) : -1
+    // Si el actual no está en la cola (filtro cambiado), ir al primero en vez del penúltimo.
+    const j = i === -1 ? 0 : (i - 1 + queue.length) % queue.length
+    set({ currentId: queue[j], pass: 1, playing: true })
   },
   stop: () => set({ currentId: null, playing: false, pass: 1 }),
 }))

@@ -229,7 +229,7 @@ function SubjectCard({
                 <span className="font-mono text-xs font-medium uppercase tracking-wide text-ink-2 tnum">{s.code}</span>
               )}
               {s.credits != null && (
-                <span className="text-xs text-ink-3">
+                <span className="text-xs text-ink-2">
                   · <span className="font-mono tnum">{s.credits}</span> {s.credits === 1 ? 'crédito' : 'créditos'}
                 </span>
               )}
@@ -294,7 +294,7 @@ function SubjectCard({
 function Metric({ icon, label, short, value }: { icon: ReactNode; label: string; short: string; value: number }) {
   return (
     <div className="flex min-w-0 flex-col" title={label}>
-      <dt className="flex items-center gap-1 truncate text-[11px] text-ink-3 [&>svg]:size-3 [&>svg]:shrink-0">
+      <dt className="flex items-center gap-1 truncate text-[11px] text-ink-2 [&>svg]:size-3 [&>svg]:shrink-0">
         {icon}
         <span className="truncate" aria-hidden>
           {short}

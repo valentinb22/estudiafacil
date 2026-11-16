@@ -53,7 +53,7 @@ export function NotificationToggle({ className }: { className?: string }) {
     )
   if (perm === 'unsupported')
     return (
-      <p role="status" className={`inline-flex min-h-10 items-center gap-2 text-[13px] text-ink-3 ${className ?? ''}`}>
+      <p role="status" className={`inline-flex min-h-10 items-center gap-2 text-[13px] text-ink-2 ${className ?? ''}`}>
         <BellOff className="size-4 shrink-0" aria-hidden />
         Tu navegador no admite notificaciones.
       </p>

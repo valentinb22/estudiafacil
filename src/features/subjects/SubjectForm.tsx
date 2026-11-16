@@ -62,7 +62,10 @@ export function SubjectForm({
   useEffect(() => {
     if (!open) return
     setF(subject ? fromSubject(subject) : empty(PALETTE[nextOrder % PALETTE.length].hex))
-  }, [open, subject, nextOrder])
+    // Sólo al abrir: si `nextOrder` cambia con el modal abierto (p. ej. llega una materia por
+    // sincronización) no hay que borrar lo que el usuario está escribiendo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, subject])
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF((p) => ({ ...p, [k]: v }))
   const valid = f.name.trim().length > 0
@@ -185,7 +188,7 @@ export function SubjectForm({
             })}
             <label
               className={clsx(
-                'relative flex h-9 cursor-pointer items-center gap-2 rounded-full border border-line pl-1 pr-3 text-xs font-medium text-ink-2 hover:bg-surface-2',
+                'relative flex h-9 cursor-pointer items-center gap-2 rounded-full border border-line pl-1 pr-3 text-xs font-medium text-ink-2 hover:bg-surface-2 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent',
                 isCustom && 'ring-2 ring-ink ring-offset-2 ring-offset-surface',
               )}
             >

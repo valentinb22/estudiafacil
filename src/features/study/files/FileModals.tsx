@@ -100,7 +100,7 @@ export function UploadModal({
       size="lg"
       footer={
         <>
-          <span className="mr-auto font-mono text-xs text-ink-3 tnum">{fmtBytes(total)}</span>
+          <span className="mr-auto font-mono text-xs text-ink-2 tnum">{fmtBytes(total)}</span>
           <Button variant="ghost" onClick={onClose} disabled={saving}>
             Cancelar
           </Button>
@@ -124,7 +124,7 @@ export function UploadModal({
                 <span className="min-w-0 flex-1 truncate text-xs text-ink-2" title={it.file.name}>
                   {it.file.name}
                 </span>
-                <span className="font-mono text-xs text-ink-3 tnum">{fmtBytes(it.file.size)}</span>
+                <span className="shrink-0 font-mono text-xs text-ink-2 tnum">{fmtBytes(it.file.size)}</span>
                 {items.length > 1 && (
                   <IconButton
                     size="sm"
@@ -135,7 +135,7 @@ export function UploadModal({
                   </IconButton>
                 )}
               </div>
-              <div className="grid gap-3 sm:grid-cols-[1fr_12rem]">
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
                 <Field label="Nombre">
                   {(id) => <Input id={id} value={it.name} onChange={(e) => patch(it.key, { name: e.target.value })} />}
                 </Field>
@@ -182,7 +182,7 @@ export function EditFileModal({ file, onClose }: { file: FileItem | null; onClos
             Cancelar
           </Button>
           <Button variant="primary" type="submit" form="edit-file-form">
-            Guardar
+            Guardar cambios
           </Button>
         </>
       }
@@ -217,7 +217,7 @@ export function PreviewModal({ file, onClose }: { file: FileItem | null; onClose
       footer={
         file && (
           <>
-            <span className="mr-auto font-mono text-xs text-ink-3 tnum">{fmtBytes(file.size)}</span>
+            <span className="mr-auto font-mono text-xs text-ink-2 tnum">{fmtBytes(file.size)}</span>
             <Button variant="primary" icon={<Download />} onClick={() => downloadFile(file)}>
               Descargar
             </Button>
@@ -226,7 +226,7 @@ export function PreviewModal({ file, onClose }: { file: FileItem | null; onClose
       }
     >
       {!file ? null : !url ? (
-        <p className="py-10 text-center text-sm text-ink-3">Cargando…</p>
+        <p className="py-10 text-center text-sm text-ink-2">Cargando…</p>
       ) : image ? (
         <img src={url} alt={file.name} className="mx-auto max-h-[70dvh] w-auto max-w-full rounded-lg object-contain" />
       ) : pdf ? (

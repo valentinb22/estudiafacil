@@ -4,7 +4,7 @@ import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTML
 import { forwardRef, useId } from 'react'
 
 const control =
-  'w-full rounded-lg border border-line bg-surface-2/60 px-3 text-ink placeholder:text-ink-3 transition-colors focus:border-accent focus:bg-surface focus:outline-none'
+  'w-full rounded-lg border border-line bg-surface-2/60 px-3 text-ink placeholder:text-ink-3 transition-colors focus:border-accent focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent/25'
 
 export function Field({
   label,
@@ -24,7 +24,7 @@ export function Field({
         {label}
       </label>
       {children(id)}
-      {hint && <p className="text-xs text-ink-3">{hint}</p>}
+      {hint && <p className="text-xs text-ink-2">{hint}</p>}
     </div>
   )
 }

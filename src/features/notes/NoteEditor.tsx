@@ -78,7 +78,7 @@ export function NoteEditor({
             Cancelar
           </Button>
           <Button variant="primary" onClick={save} disabled={!valid || saving}>
-            {note ? 'Guardar' : 'Crear nota'}
+            {note ? 'Guardar cambios' : 'Crear nota'}
           </Button>
         </>
       }
@@ -154,7 +154,7 @@ export function NoteEditor({
             />
           )}
         </Field>
-        <p className="-mt-2 flex justify-between gap-2 text-xs text-ink-3" aria-live="polite">
+        <p className="-mt-2 flex justify-between gap-2 text-xs text-ink-2">
           <span className="hidden sm:inline">Ctrl + Enter para guardar</span>
           <span className="ml-auto font-mono tnum">
             {body.length.toLocaleString('es')} {body.length === 1 ? 'carácter' : 'caracteres'}

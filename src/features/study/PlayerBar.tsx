@@ -48,6 +48,19 @@ function PlayerBarInner({ currentId }: { currentId: string }) {
     if (res && res.id === currentId && (!res.row || res.row.deleted)) stop()
   }, [res, currentId, stop])
 
+  // Quitar de la cola los audios borrados (también por sincronización, con AudiosPanel desmontado):
+  // si no, "Siguiente" caería en uno borrado y el reproductor se cerraría.
+  const aliveIds = useLiveQuery(
+    async () => (await db.audios.toArray()).filter((a) => !a.deleted).map((a) => a.id),
+    [],
+  )
+  useEffect(() => {
+    if (!aliveIds) return
+    const ok = new Set(aliveIds)
+    const { queue, setQueue } = usePlayer.getState()
+    if (queue.some((id) => !ok.has(id))) setQueue(queue.filter((id) => ok.has(id)))
+  }, [aliveIds])
+
   // Reproducir / pausar según el estado global
   useEffect(() => {
     const a = audioRef.current
@@ -209,7 +222,7 @@ function PlayerBarInner({ currentId }: { currentId: string }) {
         ref={barRef}
         role="region"
         aria-label="Reproductor de audio"
-        className="fixed inset-x-0 bottom-0 z-40 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-4"
+        className="fixed inset-x-0 bottom-0 z-30 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-4"
       >
         <audio
           ref={audioRef}
@@ -236,7 +249,7 @@ function PlayerBarInner({ currentId }: { currentId: string }) {
               id={scriptId}
               className="max-h-[min(14rem,40dvh)] overflow-y-auto border-b border-line bg-surface-2/40 px-4 py-3 sm:px-5"
             >
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ink-3">Guion</p>
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ink-2">Guion</p>
               <p className="whitespace-pre-wrap text-sm leading-relaxed">{item?.script}</p>
             </div>
           )}
@@ -255,13 +268,13 @@ function PlayerBarInner({ currentId }: { currentId: string }) {
                   </Badge>
                 )}
                 {repeat === 'loop-one' && (
-                  <span className="inline-flex items-center gap-1 text-xs text-ink-3" title="Bucle de 1 audio">
+                  <span className="inline-flex items-center gap-1 text-xs text-ink-2" title="Bucle de 1 audio">
                     <Repeat1 className="size-3.5" aria-hidden />
                     <span className="hidden xs:inline">Bucle</span>
                   </span>
                 )}
                 {repeat === 'double-next' && (
-                  <Repeat className="size-3.5 shrink-0 text-ink-3" aria-label="Secuencia 2x y siguiente" />
+                  <Repeat className="size-3.5 shrink-0 text-ink-2" role="img" aria-label="Secuencia 2x y siguiente" />
                 )}
               </div>
             </div>
@@ -339,7 +352,7 @@ function PlayerBarInner({ currentId }: { currentId: string }) {
                 aria-label="Velocidad de reproducción"
                 value={speed}
                 onChange={(e) => setSpeed(Number(e.target.value))}
-                className="h-9 cursor-pointer rounded-lg border border-line bg-surface-2/60 px-2 font-mono text-xs tnum focus:border-accent focus:outline-none lg:hidden"
+                className="h-9 cursor-pointer rounded-lg border border-line bg-surface-2/60 px-2 font-mono text-xs tnum focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 lg:hidden"
               >
                 {SPEEDS.map((s) => (
                   <option key={s} value={s}>
@@ -369,7 +382,7 @@ function PlayerBarInner({ currentId }: { currentId: string }) {
                 aria-valuetext={`${fmtDuration(time)} de ${fmtDuration(total)}`}
                 className="h-6 min-w-0 flex-1 cursor-pointer accent-accent disabled:cursor-default"
               />
-              <span className="w-10 shrink-0 font-mono text-xs text-ink-3 tnum">{fmtDuration(total)}</span>
+              <span className="w-10 shrink-0 font-mono text-xs text-ink-2 tnum">{fmtDuration(total)}</span>
             </div>
           </div>
         </div>

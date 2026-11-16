@@ -127,7 +127,7 @@ export function ResourceModal({
             Cancelar
           </Button>
           <Button variant="primary" type="submit" form="resource-form">
-            {resource ? 'Guardar' : 'Agregar'}
+            {resource ? 'Guardar cambios' : 'Crear recurso'}
           </Button>
         </>
       }

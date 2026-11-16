@@ -46,7 +46,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-40 border-b border-line bg-bg/85 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4 sm:gap-3 sm:px-6">
           <Logo />
-          <nav aria-label="Secciones" className="ml-4 hidden items-center gap-0.5 lg:flex">
+          <nav aria-label="Secciones" className="ml-4 hidden items-center gap-0.5 xl:flex">
             {NAV.map((n) => (
               <NavLink
                 key={n.to}
@@ -65,7 +65,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
-            <GlobalSubjectFilter className="hidden w-44 md:block" />
+            <GlobalSubjectFilter className="hidden w-48 xl:block" />
             <IconButton label="Modo Focus Pomodoro" onClick={() => openFocus()}>
               <Timer />
             </IconButton>
@@ -80,7 +80,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
         {/* Navegación móvil / tablet: barra desplazable */}
-        <nav aria-label="Secciones" className="scrollbar-none overflow-x-auto border-t border-line lg:hidden">
+        <nav aria-label="Secciones" className="scrollbar-none overflow-x-auto border-t border-line xl:hidden">
           <div className="mx-auto flex max-w-6xl items-center gap-1 px-3 py-1.5 sm:px-5">
             {NAV.map((n) => (
               <NavLink
@@ -98,7 +98,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {n.label}
               </NavLink>
             ))}
-            <GlobalSubjectFilter className="ml-auto w-40 shrink-0 pl-2 md:hidden" />
+            <GlobalSubjectFilter className="ml-auto w-44 shrink-0 pl-2" />
           </div>
         </nav>
       </header>

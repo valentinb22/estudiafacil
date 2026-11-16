@@ -133,7 +133,7 @@ export function FilesPanel() {
         <span>
           <span className="font-medium">Arrastra archivos aquí</span>
           <span className="hidden xs:inline"> o haz clic para elegirlos</span>
-          <span className="block text-xs text-ink-3">PDF, diapositivas, imágenes y documentos</span>
+          <span className="block text-xs">PDF, diapositivas, imágenes y documentos</span>
         </span>
       </button>
 
@@ -144,7 +144,7 @@ export function FilesPanel() {
           description="Sube tus PDFs, diapositivas, guías o fotos de apuntes para tenerlos a mano, incluso sin conexión."
           action={
             <Button variant="primary" icon={<Upload />} onClick={pick}>
-              Subir el primero
+              Subir archivos
             </Button>
           }
         />
@@ -201,7 +201,7 @@ export function FilesPanel() {
 }
 
 function Count({ n }: { n: number }) {
-  return <span className="ml-1 font-mono text-[11px] text-ink-3 tnum">{n}</span>
+  return <span className="ml-1 font-mono text-[11px] text-ink-2 tnum">{n}</span>
 }
 
 function FileCard({
@@ -241,7 +241,7 @@ function FileCard({
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge>{categoryLabel(file.category)}</Badge>
           <SubjectChip subjectId={file.subjectId} />
-          <span className="ml-auto font-mono text-xs text-ink-3 tnum">{fmtBytes(file.size)}</span>
+          <span className="ml-auto font-mono text-xs text-ink-2 tnum">{fmtBytes(file.size)}</span>
         </div>
         <div className="mt-auto flex flex-wrap items-center justify-between gap-1 border-t border-line pt-2">
           <div className="flex items-center">
@@ -249,16 +249,16 @@ function FileCard({
             {reorder}
           </div>
           <div className="flex items-center">
-            <IconButton size="sm" label="Vista previa" onClick={onPreview}>
+            <IconButton size="sm" label={`Vista previa de ${file.name}`} onClick={onPreview}>
               <Eye />
             </IconButton>
-            <IconButton size="sm" label="Descargar" onClick={() => void downloadFile(file)}>
+            <IconButton size="sm" label={`Descargar ${file.name}`} onClick={() => void downloadFile(file)}>
               <Download />
             </IconButton>
-            <IconButton size="sm" label="Editar" onClick={onEdit}>
+            <IconButton size="sm" label={`Editar ${file.name}`} onClick={onEdit}>
               <Pencil />
             </IconButton>
-            <IconButton size="sm" label="Eliminar" onClick={onDelete} className="hover:!bg-danger-soft hover:!text-danger">
+            <IconButton size="sm" label={`Eliminar ${file.name}`} onClick={onDelete} className="hover:!bg-danger-soft hover:!text-danger">
               <Trash2 />
             </IconButton>
           </div>

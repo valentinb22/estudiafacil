@@ -50,5 +50,5 @@ function make(kind: AlertItem['kind'], id: string, title: string, at: number, su
   }
 }
 
-export const toneText = { danger: 'text-danger', warn: 'text-warn', neutral: 'text-ink-3' } as const
+export const toneText = { danger: 'text-danger', warn: 'text-warn', neutral: 'text-ink-2' } as const
 export const toneDot = { danger: 'bg-danger', warn: 'bg-warn', neutral: 'bg-ink-3' } as const

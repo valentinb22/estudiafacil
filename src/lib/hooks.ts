@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { alive, byOrder, db } from './db'
 import { useUI } from './store'
 import type { AudioItem, Exam, FileItem, Note, Resource, Subject, Task } from './types'
@@ -19,8 +19,11 @@ export function useSubjectMap(): Map<string, Subject> {
 /** Aplica el filtro global por materia (null = todas). */
 function useFiltered<T extends { subjectId?: string }>(rows: T[] | undefined): T[] {
   const subjectFilter = useUI((s) => s.subjectFilter)
-  if (!rows) return EMPTY
-  return subjectFilter ? rows.filter((r) => r.subjectId === subjectFilter) : rows
+  // Memo: un arreglo nuevo en cada render dispararía efectos que dependen de él.
+  return useMemo(() => {
+    if (!rows) return EMPTY
+    return subjectFilter ? rows.filter((r) => r.subjectId === subjectFilter) : rows
+  }, [rows, subjectFilter])
 }
 
 export const useTasks = (): Task[] =>
@@ -50,15 +53,21 @@ export function useNow(ms = 1000): number {
 export function useBlobUrl(blobId?: string): string | undefined {
   const rec = useLiveQuery(async () => (blobId ? db.blobs.get(blobId) : undefined), [blobId])
   const [url, setUrl] = useState<string>()
+  // Clave estable: cualquier escritura en `blobs` (otra grabación, marca `synced`) devuelve un objeto
+  // nuevo; recrear la URL reiniciaría el <audio> en curso.
+  const cur = rec && rec.id === blobId && rec.blob ? rec : undefined
+  const key = cur ? `${cur.id}:${cur.updatedAt}:${cur.size}` : ''
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const blob = useMemo(() => cur?.blob, [key])
   useEffect(() => {
-    if (!rec?.blob) {
+    if (!blob) {
       setUrl(undefined)
       return
     }
-    const u = URL.createObjectURL(rec.blob)
+    const u = URL.createObjectURL(blob)
     setUrl(u)
     return () => URL.revokeObjectURL(u)
-  }, [rec])
+  }, [blob])
   return url
 }
 

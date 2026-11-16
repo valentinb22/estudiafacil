@@ -5,6 +5,9 @@ import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { IconButton } from './Button'
 
+const openStack: object[] = []
+let baseOverflow = ''
+
 /**
  * Modal accesible: Esc cierra, foco inicial dentro, scroll interno con altura adaptable.
  * `footer` queda fijo abajo (acciones).
@@ -34,9 +37,14 @@ export function Modal({
   useEffect(() => {
     if (!open) return
     const prev = document.activeElement as HTMLElement | null
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeRef.current()
+    // Pila de modales abiertos: Esc cierra sólo el de arriba y el scroll del body se restaura
+    // cuando se cierra el último (aunque se cierren varios en el mismo commit).
+    const token = {}
+    if (!openStack.length) baseOverflow = document.body.style.overflow
+    openStack.push(token)
+    const onKey = (e: KeyboardEvent) =>
+      e.key === 'Escape' && openStack[openStack.length - 1] === token && closeRef.current()
     document.addEventListener('keydown', onKey)
-    const overflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     requestAnimationFrame(() => {
       const el = ref.current?.querySelector<HTMLElement>('input, textarea, select, [data-autofocus]')
@@ -44,7 +52,9 @@ export function Modal({
     })
     return () => {
       document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = overflow
+      const i = openStack.indexOf(token)
+      if (i !== -1) openStack.splice(i, 1)
+      if (!openStack.length) document.body.style.overflow = baseOverflow
       prev?.focus?.()
     }
   }, [open])
@@ -107,12 +117,13 @@ export function ConfirmModal({
       size="sm"
       footer={
         <>
-          <button className="h-9 rounded-lg px-3 text-sm font-medium text-ink-2 hover:bg-surface-2" onClick={onClose}>
+          <button type="button" className="h-10 rounded-lg px-4 text-sm font-medium text-ink-2 hover:bg-surface-2 hover:text-ink" onClick={onClose}>
             Cancelar
           </button>
           <button
             data-autofocus
-            className="h-9 rounded-lg bg-danger px-3 text-sm font-medium text-white hover:bg-danger/90"
+            type="button"
+            className="h-10 rounded-lg bg-danger px-4 text-sm font-medium text-white hover:bg-danger/90"
             onClick={() => {
               onConfirm()
               onClose()

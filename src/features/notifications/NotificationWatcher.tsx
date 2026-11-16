@@ -35,6 +35,8 @@ function notify(title: string, body: string, tag: string) {
   }
 }
 
+let checking = false
+
 async function check() {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
   const now = Date.now()
@@ -74,9 +76,17 @@ async function check() {
 export function NotificationWatcher() {
   useEffect(() => {
     const run = () => {
-      check().catch(() => {
-        /* sin acceso a la base local */
-      })
+      // Evita revisiones superpuestas (intervalo + visibilidad, doble efecto en StrictMode):
+      // ambas leerían la lista de avisados antes de guardarla y notificarían dos veces.
+      if (checking) return
+      checking = true
+      check()
+        .catch(() => {
+          /* sin acceso a la base local */
+        })
+        .finally(() => {
+          checking = false
+        })
     }
     run()
     const t = setInterval(run, TICK)

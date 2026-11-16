@@ -357,6 +357,12 @@ async function uploadBlob(id: string) {
       const data = await blobToBase64(rec.blob.slice(i * CHUNK_BYTES, (i + 1) * CHUNK_BYTES))
       await setDoc(doc(blobChunks(s.uid, id), String(i)), { data })
     }
+    // Si el registro dueño se borró durante la subida (remove() borra el blob local), su lápida
+    // pudo limpiar el remoto antes de que termináramos: no dejar trozos huérfanos.
+    if (!(await db.blobs.get(id))) {
+      await deleteRemoteBlob(s.uid, id)
+      return
+    }
     // El meta se escribe al final: su existencia indica que el binario está completo.
     await setDoc(blobMeta(s.uid, id), { mime: rec.mime, size: rec.size, chunks, updatedAt: rec.updatedAt })
   }
@@ -375,6 +381,13 @@ async function deleteRemoteBlob(uid: string, id: string) {
   await deleteDoc(blobMeta(uid, id))
 }
 
+async function isBlobReferenced(id: string) {
+  for (const t of BLOB_TABLES) {
+    if (await table(t).filter((r) => !r.deleted && r.blobId === id).count()) return true
+  }
+  return false
+}
+
 async function downloadBlob(id: string) {
   const s = session
   if (!s || !isOnline()) return
@@ -389,12 +402,15 @@ async function downloadBlob(id: string) {
   const parts = snap.docs
     .map((d) => ({ i: Number(d.id), data: String(d.get('data') ?? '') }))
     .sort((a, b) => a.i - b.i)
-  if (m.chunks !== undefined && parts.length < m.chunks) {
+    .slice(0, m.chunks ?? undefined)
+  if (parts.some((p, i) => p.i !== i) || (m.chunks !== undefined && parts.length < m.chunks)) {
     s.missingRemote.add(id)
     return
   }
   const blob = new Blob(parts.map((p) => base64ToBytes(p.data)), { type: m.mime ?? '' })
   if (session !== s) return
+  // El registro pudo borrarse (localmente o por una lápida remota) mientras descargábamos.
+  if (!(await isBlobReferenced(id))) return
   s.missingRemote.delete(id)
   await db.blobs.put({
     id,

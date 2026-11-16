@@ -93,7 +93,7 @@ export function SyncButton() {
         aria-label="Sincronizar con la nube"
         title={status === 'disabled' ? 'Nube no configurada' : 'Sincronizar con la nube'}
         disabled={initializing && status !== 'disabled'}
-        className="size-10 px-0 sm:h-8 sm:w-auto sm:px-3"
+        className="size-10 px-0 sm:h-9 sm:w-auto sm:px-3"
         icon={status === 'disabled' ? <CloudOff /> : <CloudUpload />}
       >
         <span className="hidden sm:inline">Sincronizar</span>
@@ -276,7 +276,7 @@ function AccountModal({ open, onClose }: { open: boolean; onClose: () => void })
             {s.error}
           </p>
         )}
-        <p className="text-xs text-ink-3">Al cerrar sesión tus datos siguen en este dispositivo.</p>
+        <p className="text-xs text-ink-2">Al cerrar sesión tus datos siguen en este dispositivo.</p>
       </div>
     </Modal>
   )

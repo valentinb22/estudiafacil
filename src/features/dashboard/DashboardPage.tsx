@@ -51,7 +51,7 @@ export function DashboardPage() {
       {/* Cabecera editorial */}
       <header className="flex flex-col gap-4 border-b border-line pb-6 md:flex-row md:items-end md:justify-between">
         <div className="min-w-0">
-          <p className="font-mono text-xs uppercase tracking-[0.14em] text-ink-3">
+          <p className="font-mono text-xs uppercase tracking-[0.14em] text-ink-2">
             <time dateTime={new Date(now).toISOString().slice(0, 10)}>{date}</time>
           </p>
           <h1 className="mt-2 font-serif text-[2.6rem] leading-[0.95] tracking-tight sm:text-6xl">
@@ -144,10 +144,10 @@ function UrgentBanner({ alerts, now }: { alerts: ReturnType<typeof collectAlerts
             <li key={a.key}>
               <Link
                 to={a.href}
-                className="group flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm focus-visible:outline-none"
+                className="group flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm"
               >
                 <span className={clsx('size-2 shrink-0 rounded-full', toneDot[a.tone])} aria-hidden />
-                <span className="text-xs font-medium uppercase tracking-wide text-ink-3">
+                <span className="text-xs font-medium uppercase tracking-wide text-ink-2">
                   {a.kind === 'task' ? 'Tarea' : 'Examen'}
                 </span>
                 <span className="min-w-0 flex-1 truncate font-medium group-hover:underline group-focus-visible:underline">
@@ -170,7 +170,7 @@ function Kpi({ to, icon, label, value, note }: { to: string; icon: ReactNode; la
   return (
     <Link
       to={to}
-      className="group flex min-h-32 flex-col justify-between rounded-xl border border-line bg-surface p-4 transition-colors duration-150 hover:border-ink-3 focus-visible:border-accent focus-visible:outline-none sm:p-5"
+      className="group flex min-h-32 flex-col justify-between rounded-xl border border-line bg-surface p-4 transition-colors duration-150 hover:border-ink-3 focus-visible:border-accent sm:p-5"
     >
       <span className="flex items-start justify-between gap-2 text-ink-3">
         <span className="[&>svg]:size-[18px]" aria-hidden>
@@ -184,7 +184,7 @@ function Kpi({ to, icon, label, value, note }: { to: string; icon: ReactNode; la
       <span>
         <span className="tnum block font-serif text-5xl leading-none tracking-tight sm:text-6xl">{value}</span>
         <span className="mt-2 block text-[13px] font-medium leading-tight text-ink-2">{label}</span>
-        {note && <span className="mt-0.5 block font-mono text-[11px] text-ink-3">{note}</span>}
+        {note && <span className="mt-0.5 block font-mono text-[11px] text-ink-2">{note}</span>}
       </span>
     </Link>
   )
@@ -235,7 +235,7 @@ function NextExam({ exam }: { exam?: Exam }) {
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone="hl">Lo importante ahora</Badge>
           <SubjectChip subjectId={exam.subjectId} />
-          <span className="text-xs capitalize text-ink-3">{exam.type}</span>
+          <span className="text-xs capitalize text-ink-2">{exam.type}</span>
         </div>
         <h3 className="mt-3 text-xl font-semibold leading-snug sm:text-2xl">{exam.title}</h3>
         <p className="tnum mt-1 font-mono text-[13px] text-ink-2">{fmtDateTime(exam.at)}</p>
@@ -244,13 +244,13 @@ function NextExam({ exam }: { exam?: Exam }) {
 
         <dl className="grid grid-cols-2 gap-4 border-t border-line pt-4 text-sm">
           <div className="min-w-0">
-            <dt className="flex items-center gap-1.5 text-xs text-ink-3">
+            <dt className="flex items-center gap-1.5 text-xs text-ink-2">
               <MapPin className="size-3.5" aria-hidden /> Lugar
             </dt>
             <dd className="mt-1 truncate font-medium">{exam.location || 'Sin definir'}</dd>
           </div>
           <div>
-            <dt className="flex items-center gap-1.5 text-xs text-ink-3">
+            <dt className="flex items-center gap-1.5 text-xs text-ink-2">
               <Target className="size-3.5" aria-hidden /> Peso en la nota
             </dt>
             <dd className="tnum mt-1 font-mono font-medium">{exam.weight != null ? `${exam.weight}%` : '—'}</dd>
@@ -259,7 +259,7 @@ function NextExam({ exam }: { exam?: Exam }) {
 
         <div className="mt-4">
           <div className="mb-1.5 flex items-baseline justify-between text-xs">
-            <span className="text-ink-3">Temas dominados</span>
+            <span className="text-ink-2">Temas dominados</span>
             <span className="tnum font-mono text-ink-2">
               {total ? `${mastered}/${total}` : 'Sin temas cargados'}
             </span>
@@ -366,7 +366,7 @@ function UpcomingTasks({ tasks, total, now }: { tasks: Task[]; total: number; no
                       <SubjectChip subjectId={t.subjectId} />
                       {t.priority === 'high' && <Badge tone="danger">Alta</Badge>}
                       {t.checklist.length > 0 && (
-                        <span className="tnum font-mono text-[11px] text-ink-3">
+                        <span className="tnum font-mono text-[11px] text-ink-2">
                           {t.checklist.filter((c) => c.done).length}/{t.checklist.length}
                         </span>
                       )}
@@ -376,7 +376,7 @@ function UpcomingTasks({ tasks, total, now }: { tasks: Task[]; total: number; no
                     <p className={clsx('tnum font-mono text-xs', toneText[tone])}>
                       {u === 'overdue' ? 'vencida' : relative(t.dueAt, now)}
                     </p>
-                    <p className="tnum mt-0.5 font-mono text-[11px] text-ink-3">
+                    <p className="tnum mt-0.5 font-mono text-[11px] text-ink-2">
                       {fmtDate(t.dueAt)} · {fmtTime(t.dueAt)}
                     </p>
                   </div>
@@ -393,7 +393,7 @@ function UpcomingTasks({ tasks, total, now }: { tasks: Task[]; total: number; no
 function QuickActions() {
   const openFocus = useUI((s) => s.openFocus)
   const tile =
-    'group flex min-h-[5.5rem] flex-col justify-between gap-3 rounded-xl border border-line bg-surface p-3 text-left text-sm font-medium transition-colors duration-150 hover:border-ink-3 focus-visible:border-accent focus-visible:outline-none sm:p-4'
+    'group flex min-h-[5.5rem] flex-col justify-between gap-3 rounded-xl border border-line bg-surface p-3 text-left text-sm font-medium transition-colors duration-150 hover:border-ink-3 focus-visible:border-accent sm:p-4'
   const ic = 'size-[18px] text-ink-3 transition-colors group-hover:text-accent'
   return (
     <section aria-labelledby="quick-title">
@@ -463,7 +463,7 @@ function RecentAudios({ audios }: { audios: AudioItem[] }) {
                     onClick={() => (isCurrent ? toggle() : play(a.id, queue))}
                     aria-label={isPlaying ? `Pausar ${a.title}` : `Reproducir ${a.title}`}
                     aria-pressed={isPlaying}
-                    className="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:outline-none sm:px-4"
+                    className="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-surface-2 focus-visible:bg-surface-2 sm:px-4"
                   >
                     <span
                       className={clsx(
@@ -482,7 +482,7 @@ function RecentAudios({ audios }: { audios: AudioItem[] }) {
                       </span>
                     </span>
                     {a.durationSec != null && (
-                      <span className="tnum shrink-0 font-mono text-xs text-ink-3">{fmtDuration(a.durationSec)}</span>
+                      <span className="tnum shrink-0 font-mono text-xs text-ink-2">{fmtDuration(a.durationSec)}</span>
                     )}
                   </button>
                 </li>

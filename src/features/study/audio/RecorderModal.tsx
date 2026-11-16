@@ -151,8 +151,11 @@ export function RecorderModal({ onClose }: { onClose: () => void }) {
   }, [])
 
   // Limpieza total al desmontar
-  useEffect(
-    () => () => {
+  const mountedRef = useRef(true)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
       cancelAnimationFrame(rafRef.current)
       const rec = recRef.current
       if (rec && rec.state !== 'inactive') {
@@ -161,9 +164,8 @@ export function RecorderModal({ onClose }: { onClose: () => void }) {
         rec.stop()
       }
       releaseMic()
-    },
-    [releaseMic],
-  )
+    }
+  }, [releaseMic])
 
   useEffect(() => {
     if (!blob) return
@@ -186,6 +188,11 @@ export function RecorderModal({ onClose }: { onClose: () => void }) {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true },
       })
+      // El modal se cerró mientras se pedía permiso: liberar el micrófono y salir.
+      if (!mountedRef.current) {
+        stream.getTracks().forEach((t) => t.stop())
+        return
+      }
       streamRef.current = stream
 
       try {
@@ -201,7 +208,13 @@ export function RecorderModal({ onClose }: { onClose: () => void }) {
       }
 
       const mime = pickRecorderMime()
-      const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream)
+      let rec: MediaRecorder
+      try {
+        rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream)
+      } catch {
+        // isTypeSupported puede mentir (Safari antiguos): usar el formato por defecto del navegador.
+        rec = new MediaRecorder(stream)
+      }
       const chunks: Blob[] = []
       rec.ondataavailable = (e) => e.data.size && chunks.push(e.data)
       rec.onstop = () => {
@@ -342,7 +355,8 @@ export function RecorderModal({ onClose }: { onClose: () => void }) {
                             : 'Listo para grabar'}
                   </span>
                 </div>
-                <span className="font-mono text-2xl tnum" role="timer" aria-label="Tiempo grabado">
+                <span className="font-mono text-2xl tnum" role="timer">
+                  <span className="sr-only">Tiempo grabado: </span>
                   {fmtDuration(elapsed / 1000)}
                 </span>
               </div>
@@ -388,7 +402,7 @@ export function RecorderModal({ onClose }: { onClose: () => void }) {
                       <audio controls src={previewUrl} className="w-full" aria-label="Escuchar la grabación" />
                     )}
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="text-xs text-ink-3">{blob && fmtBytes(blob.size)}</span>
+                      <span className="text-xs text-ink-2">{blob && fmtBytes(blob.size)}</span>
                       <Button variant="ghost" size="sm" icon={<RotateCcw />} onClick={discard}>
                         Descartar y volver a grabar
                       </Button>

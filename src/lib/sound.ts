@@ -1,5 +1,19 @@
 let ctx: AudioContext | null = null
-export const audioCtx = () => (ctx ??= new AudioContext())
+/** Contexto compartido. Si quedó suspendido (política de autoplay), se intenta reanudar. */
+export const audioCtx = () => {
+  ctx ??= new AudioContext()
+  if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+  return ctx
+}
+
+/** Llamar desde un gesto del usuario para que sonidos posteriores (sin gesto) sí suenen. */
+export function unlockAudio() {
+  try {
+    audioCtx()
+  } catch {
+    /* sin audio */
+  }
+}
 
 /** Sonido sutil de confirmación (dos notas suaves). */
 export function playChime() {
