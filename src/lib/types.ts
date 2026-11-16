@@ -149,6 +149,8 @@ export interface GuideBlock {
   activity: string
   minutes: number
   material?: string
+  /** Horario sugerido, "HH:MM–HH:MM". */
+  time?: string
   done: boolean
 }
 

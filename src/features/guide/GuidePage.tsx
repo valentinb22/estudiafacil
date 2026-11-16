@@ -96,12 +96,12 @@ const STEPS = [
   {
     icon: BookOpenCheck,
     title: 'La IA lee tu material',
-    text: 'Usa los temas de cada examen y el material de estudio vinculado: apuntes, resúmenes, PDFs y fotos.',
+    text: 'Usa los temas de cada examen, el material de estudio vinculado (apuntes, resúmenes, PDFs y fotos) y tus horarios de clase.',
   },
   {
     icon: Sparkles,
     title: 'Recibes un plan a medida',
-    text: 'Reparte los temas en los días que quedan según las horas que tienes, con repasos antes de cada examen.',
+    text: 'Según tus horarios de cursada y cuánto tienes que estudiar, reparte los temas en días y horarios libres, con repasos antes de cada examen.',
   },
 ]
 
@@ -282,7 +282,10 @@ function GuideView({ guide }: { guide: StudyGuide }) {
                               >
                                 {b.topic}
                               </span>
-                              <span className="shrink-0 font-mono text-xs text-ink-2 tnum">{fmtMin(b.minutes)}</span>
+                              <span className="shrink-0 text-right font-mono text-xs text-ink-2 tnum">
+                                {b.time && <span className="block text-ink">{b.time}</span>}
+                                {fmtMin(b.minutes)}
+                              </span>
                             </span>
                             {b.activity && (
                               <span className="mt-0.5 block text-[13px] leading-relaxed text-ink-2">{b.activity}</span>

@@ -1,30 +1,22 @@
 import clsx from 'clsx'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ExternalLink, KeyRound, LoaderCircle, Sparkles } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '../../components/ui/Button'
 import { SubjectChip } from '../../components/ui/Display'
 import { Field, Input, Textarea } from '../../components/ui/Form'
 import { Modal } from '../../components/ui/Modal'
 import { alive, create, db } from '../../lib/db'
-import { useNow } from '../../lib/hooks'
-import { WEEK } from '../../lib/schedule'
+import { useNow, useSubjects } from '../../lib/hooks'
+import { isValidSlot, WEEK } from '../../lib/schedule'
 import { fmtDateTime, relative } from '../../lib/time'
-import type { Exam, Weekday } from '../../lib/types'
+import type { Exam } from '../../lib/types'
 import { examTypeLabel } from '../exams/examUtils'
-import type { Availability } from './gemini'
-import {
-  generateGuide, getApiKey, GuideError, isoDate, loadAvailability, parseIsoDate, saveAvailability, setApiKey,
-} from './gemini'
+import { generateGuide, getApiKey, GuideError, isoDate, setApiKey } from './gemini'
 
 /** Lunes primero. */
 const WEEK_ORDER = [...WEEK.filter((w) => w.day !== 0), WEEK.find((w) => w.day === 0)!]
 
-const fmtHours = (min: number) => {
-  const h = Math.floor(min / 60)
-  const m = min % 60
-  return h ? `${h} h${m ? ` ${m} min` : ''}` : `${m} min`
-}
 
 export function GuideGenerator({
   open,
@@ -41,7 +33,7 @@ export function GuideGenerator({
     [open],
   )
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [avail, setAvail] = useState<Availability>(loadAvailability)
+  const subjects = useSubjects()
   const [startDate, setStartDate] = useState(() => isoDate(now))
   const [extra, setExtra] = useState('')
   const [key, setKey] = useState(getApiKey)
@@ -76,14 +68,16 @@ export function GuideGenerator({
   }, [open, upcoming])
 
   const chosen = (upcoming ?? []).filter((e) => selected.has(e.id))
-  const totalMin = useMemo(() => {
-    if (!chosen.length) return 0
-    const last = new Date(Math.max(...chosen.map((e) => e.at)))
-    last.setHours(0, 0, 0, 0)
-    let sum = 0
-    for (const d = parseIsoDate(startDate); d <= last; d.setDate(d.getDate() + 1)) sum += avail[d.getDay() as Weekday]
-    return sum
-  }, [chosen, startDate, avail])
+  // Clases de cada día de la semana, para mostrar lo que la IA va a tener en cuenta.
+  const week = WEEK_ORDER.map((w) => ({
+    ...w,
+    classes: subjects
+      .flatMap((sub) =>
+        (sub.slots ?? []).filter((sl) => isValidSlot(sl) && sl.day === w.day).map((sl) => ({ sl, sub })),
+      )
+      .sort((x, y) => x.sl.start.localeCompare(y.sl.start)),
+  }))
+  const hasSchedule = week.some((w) => w.classes.length)
 
   const toggle = (id: string) =>
     setSelected((s) => {
@@ -92,13 +86,6 @@ export function GuideGenerator({
       else n.add(id)
       return n
     })
-
-  const setDay = (d: Weekday, hours: string) => {
-    const v = Math.max(0, Math.min(24, parseFloat(hours.replace(',', '.')) || 0))
-    const next = { ...avail, [d]: Math.round(v * 60) }
-    setAvail(next)
-    saveAvailability(next)
-  }
 
   const saveKey = () => {
     const k = keyDraft.trim()
@@ -115,7 +102,7 @@ export function GuideGenerator({
   }
 
   const startValid = /^\d{4}-\d{2}-\d{2}$/.test(startDate)
-  const canGenerate = chosen.length > 0 && !!key && !editingKey && startValid && totalMin > 0 && !busy
+  const canGenerate = chosen.length > 0 && !!key && !editingKey && startValid && !busy
 
   const generate = async () => {
     if (!canGenerate) return
@@ -124,7 +111,7 @@ export function GuideGenerator({
     const ctrl = new AbortController()
     abort.current = ctrl
     try {
-      const guide = await generateGuide({ exams: chosen, availability: avail, startDate, extra }, ctrl.signal)
+      const guide = await generateGuide({ exams: chosen, startDate, extra }, ctrl.signal)
       const id = await create('guides', guide)
       onCreated(id)
       onClose()
@@ -180,35 +167,41 @@ export function GuideGenerator({
         </section>
 
         <section aria-labelledby="g-time">
-          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-            <h3 id="g-time" className="text-sm font-semibold">
-              Tiempo que tienes para estudiar
-            </h3>
-            {chosen.length > 0 && (
-              <span className="text-xs text-ink-2">
-                Total hasta el examen: <span className="font-mono tnum text-ink">{fmtHours(totalMin)}</span>
-              </span>
-            )}
-          </div>
-          <p className="mb-3 text-xs text-ink-2">Horas por día de la semana. Se recuerdan para la próxima vez.</p>
-          <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
-            {WEEK_ORDER.map((w) => (
-              <label key={w.day} className="flex flex-col gap-1">
-                <span className="text-xs font-medium text-ink-2">{w.short}</span>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  max={24}
-                  step={0.5}
-                  aria-label={`Horas para estudiar el ${w.long.toLowerCase()}`}
-                  value={String(avail[w.day] / 60)}
-                  onChange={(e) => setDay(w.day, e.target.value)}
-                  className="px-2 text-center font-mono tnum"
-                />
-              </label>
-            ))}
-          </div>
+          <h3 id="g-time" className="mb-1 text-sm font-semibold">
+            Tus horarios de cursada
+          </h3>
+          <p className="mb-3 text-xs leading-relaxed text-ink-2">
+            La IA decide cuánto estudiar cada día y a qué hora, según tus clases y la cantidad de temas y material de cada
+            examen.
+          </p>
+          {hasSchedule ? (
+            <ul className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+              {week
+                .filter((w) => w.classes.length || (w.day >= 1 && w.day <= 5))
+                .map((w) => (
+                  <li key={w.day} className="rounded-lg border border-line px-2.5 py-2">
+                    <span className="block text-xs font-medium">{w.long}</span>
+                    {w.classes.length ? (
+                      <ul className="mt-1 space-y-0.5">
+                        {w.classes.map(({ sl, sub }) => (
+                          <li key={sl.id} className="flex min-w-0 items-center gap-1.5 text-[11px] text-ink-2">
+                            <span className="size-1.5 shrink-0 rounded-full" style={{ background: sub.color }} aria-hidden />
+                            <span className="shrink-0 font-mono tnum">{sl.start}–{sl.end}</span>
+                            <span className="truncate">{sub.code || sub.name}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <span className="mt-1 block text-[11px] text-ink-3">Sin clases</span>
+                    )}
+                  </li>
+                ))}
+            </ul>
+          ) : (
+            <p className="rounded-lg bg-warn-soft px-3 py-2 text-xs text-warn">
+              No cargaste horarios en tus materias. La guía se arma igual, pero sale mejor si los agregas en Materias.
+            </p>
+          )}
           <Field label="Empezar a estudiar el" className="mt-3 max-w-56">
             {(id) => (
               <Input

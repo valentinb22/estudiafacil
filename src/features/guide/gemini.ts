@@ -2,12 +2,11 @@
 // La clave la pega el usuario y queda sólo en este navegador (localStorage); no se sincroniza.
 
 import { alive, db, uid } from '../../lib/db'
-import { dayLong, isValidSlot } from '../../lib/schedule'
+import { dayLong, isValidSlot, toMin } from '../../lib/schedule'
 import type { Exam, GuideDay, StudyGuide, Subject, Weekday } from '../../lib/types'
 import { examTypeLabel, levelLabel } from '../exams/examUtils'
 
 const KEY_STORAGE = 'ef-gemini-key'
-const AVAIL_STORAGE = 'ef-guide-availability'
 
 /** Modelos a probar en orden (si uno no existe para la clave, se pasa al siguiente). */
 const MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash']
@@ -36,36 +35,6 @@ export function setApiKey(key: string) {
   }
 }
 
-/** Minutos disponibles por día de la semana (0 = domingo). */
-export type Availability = Record<Weekday, number>
-
-const DEFAULT_AVAIL: Availability = { 0: 60, 1: 120, 2: 120, 3: 120, 4: 120, 5: 120, 6: 120 }
-
-export function loadAvailability(): Availability {
-  try {
-    const raw = JSON.parse(localStorage.getItem(AVAIL_STORAGE) ?? 'null')
-    if (raw && typeof raw === 'object') {
-      const out = { ...DEFAULT_AVAIL }
-      for (const d of [0, 1, 2, 3, 4, 5, 6] as Weekday[]) {
-        const v = Number(raw[d])
-        if (Number.isFinite(v) && v >= 0) out[d] = Math.min(24 * 60, Math.round(v))
-      }
-      return out
-    }
-  } catch {
-    /* sin datos */
-  }
-  return { ...DEFAULT_AVAIL }
-}
-
-export function saveAvailability(a: Availability) {
-  try {
-    localStorage.setItem(AVAIL_STORAGE, JSON.stringify(a))
-  } catch {
-    /* almacenamiento no disponible */
-  }
-}
-
 export const isoDate = (t: number | Date) => {
   const d = new Date(t)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -74,6 +43,13 @@ export const isoDate = (t: number | Date) => {
 export const parseIsoDate = (s: string) => {
   const [y, m, d] = s.split('-').map(Number)
   return new Date(y, m - 1, d)
+}
+
+/** "45 min", "3 h 30 min". */
+const fmtSpan = (min: number) => {
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  return h ? `${h} h${m ? ` ${m} min` : ''}` : `${m} min`
 }
 
 const hhmm = (t: number) => {
@@ -101,7 +77,6 @@ function blobToBase64(b: Blob): Promise<string> {
 
 export interface GuideInput {
   exams: Exam[]
-  availability: Availability
   /** Primer día del plan ("AAAA-MM-DD"). */
   startDate: string
   extra: string
@@ -135,12 +110,18 @@ async function buildRequest(input: GuideInput, now = Date.now()): Promise<Built>
     const wd = d.getDay() as Weekday
     days.push(iso)
     const classes = subjectList
-      .flatMap((s) => (s.slots ?? []).filter((sl) => isValidSlot(sl) && sl.day === wd).map((sl) => `${sl.start}–${sl.end} ${s.name}`))
-      .sort()
+      .flatMap((s) =>
+        (s.slots ?? [])
+          .filter((sl) => isValidSlot(sl) && sl.day === wd)
+          .map((sl) => ({ start: sl.start, text: `${sl.start}–${sl.end} ${s.name}`, min: toMin(sl.end) - toMin(sl.start) })),
+      )
+      .sort((x, y) => x.start.localeCompare(y.start))
     const examsToday = exams.filter((e) => isoDate(e.at) === iso)
-    let line = `- ${iso} (${dayLong(wd).toLowerCase()}): ${input.availability[wd]} min disponibles para estudiar`
-    if (iso === isoDate(now)) line += ` (es hoy; ya son las ${hhmm(now)})`
-    if (classes.length) line += `; cursa: ${classes.join(', ')}`
+    let line = `- ${iso} (${dayLong(wd).toLowerCase()})`
+    if (iso === isoDate(now)) line += ` (es hoy; ya son las ${hhmm(now)}, planifica sólo desde ahora)`
+    line += classes.length
+      ? `: cursa ${classes.map((c) => c.text).join(', ')} (${fmtSpan(classes.reduce((t, c) => t + c.min, 0))} de clases)`
+      : ': no tiene clases'
     if (examsToday.length)
       line += `; ese día rinde ${examsToday.map((e) => `${e.title} a las ${hhmm(e.at)}`).join(' y ')}`
     calendar.push(line)
@@ -151,9 +132,9 @@ async function buildRequest(input: GuideInput, now = Date.now()): Promise<Built>
       `Hoy es ${isoDate(now)} y son las ${hhmm(now)}.`,
       `Arma un plan de estudio día por día desde ${input.startDate} hasta el día del último examen.`,
       '',
-      'Tiempo disponible por día (no te pases de estos minutos; si un día tiene 0, no asignes nada):',
+      'Calendario con sus horarios de cursada (decide tú cuánto estudiar cada día y en qué horario):',
       ...calendar,
-      input.extra.trim() ? `\nIndicaciones del estudiante: ${input.extra.trim()}` : '',
+      ...(input.extra.trim() ? ['', `Indicaciones del estudiante: ${input.extra.trim()}`] : []),
       '',
       'Exámenes y entregas a preparar:',
     ].join('\n'),
@@ -218,7 +199,10 @@ Escribe en español rioplatense neutro, claro y breve.
 Reglas:
 - Usa el material adjunto (apuntes, resúmenes, PDFs, fotos) para decidir qué temas estudiar y cuánto pesa cada uno.
 - Prioriza lo que está marcado como "Sin ver" o "Repasar" y los exámenes más cercanos o con más peso.
-- Reparte el tiempo sólo en los días del calendario y nunca superes los minutos disponibles de cada día.
+- No hay un tiempo disponible fijo: decide cuánto estudiar cada día según la cantidad de temas y material, lo que falta para cada examen y sus horarios de cursada.
+- Días con muchas horas de clase: poco estudio (o nada). Días sin clases o fines de semana: más tiempo. Sé realista: en general no más de 4 h por día, salvo justo antes de un examen difícil con mucho material.
+- Si hay poco para estudiar, no llenes todos los días: deja días libres.
+- A cada bloque ponle un "horario" sugerido (HH:MM–HH:MM) que no se superponga con las clases ni con el examen, dejando un margen para traslados y comidas, entre las 08:00 y las 23:00.
 - Bloques de 20 a 90 minutos. Incluye repasos espaciados, ejercicios o práctica activa, y un repaso corto el día anterior a cada examen.
 - El día del examen sólo un repaso liviano antes de la hora del examen, o nada.
 - Para una presentación o trabajo práctico, incluye preparar el contenido y ensayarla.
@@ -244,6 +228,7 @@ const SCHEMA = {
                 tema: { type: 'STRING' },
                 actividad: { type: 'STRING' },
                 minutos: { type: 'INTEGER' },
+                horario: { type: 'STRING', description: 'HH:MM–HH:MM' },
                 material: { type: 'STRING' },
               },
               required: ['examen', 'tema', 'actividad', 'minutos'],
@@ -260,7 +245,7 @@ const SCHEMA = {
 
 interface RawPlan {
   resumen?: string
-  dias?: { fecha?: string; bloques?: { examen?: string; tema?: string; actividad?: string; minutos?: number; material?: string }[] }[]
+  dias?: { fecha?: string; bloques?: { examen?: string; tema?: string; actividad?: string; minutos?: number; horario?: string; material?: string }[] }[]
   consejos?: string[]
 }
 
@@ -306,6 +291,14 @@ async function callGemini(key: string, parts: Part[], signal?: AbortSignal): Pro
   throw lastErr ?? new GuideError('No se pudo usar Gemini.')
 }
 
+/** Normaliza "18:00 - 19:30" → "18:00–19:30"; undefined si no tiene forma de horario. */
+function parseRange(v: unknown): string | undefined {
+  const m = String(v ?? '').match(/(\d{1,2}):(\d{2})\s*[-–—a]+\s*(\d{1,2}):(\d{2})/)
+  if (!m) return undefined
+  const p = (h: string, mm: string) => `${h.padStart(2, '0')}:${mm}`
+  return `${p(m[1], m[2])}–${p(m[3], m[4])}`
+}
+
 /** Genera la guía y la devuelve lista para guardar. */
 export async function generateGuide(
   input: GuideInput,
@@ -340,9 +333,11 @@ export async function generateGuide(
         activity: (b.actividad ?? '').trim(),
         minutes: Math.min(minutes, 8 * 60),
         material: b.material?.trim() || undefined,
+        time: parseRange(b.horario),
         done: false,
       })
     }
+    day.blocks.sort((x, y) => (x.time ?? '99').localeCompare(y.time ?? '99'))
     if (day.blocks.length) byDate.set(d.fecha, day)
   }
   const days = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date))
